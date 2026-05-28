@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeoFlip — 開始新棋盤</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <div class="setup">
+    <h1>Geo<span class="brand__accent">Flip</span></h1>
+    <p class="setup-intro">
+      選擇本局的起始地點。系統會以此為中心抓取附近的 POI 組成棋盤，
+      接著兩位玩家輪流插旗。
+    </p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+          {% for cat, msg in messages %}
+            <li class="flash {{ cat }}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <form method="post" action="{{ url_for('setup_search') }}" class="setup-search">
+      <label>搜尋起始地點（例如：新竹車站、台大、士林夜市）：
+        <input type="text" name="q" value="{{ setup_query|default('') }}" required>
+      </label>
+      <button type="submit" class="btn btn--primary">搜尋</button>
+    </form>
+
+    {% if info_message %}
+      <p class="info">{{ info_message }}</p>
+    {% endif %}
+
+    <div id="setup-loading-overlay" class="setup-loading-overlay" hidden aria-live="polite">
+      <div class="setup-loading-box">
+        <div class="setup-loading-spinner" aria-hidden="true"></div>
+        <p class="setup-loading-text">載入地圖資料中…</p>
+        <p class="setup-loading-hint">第一次抓取附近 POI，可能需要幾秒鐘。</p>
+      </div>
+    </div>
+
+    {% if setup_candidates %}
+      <section class="setup-candidates">
+        <h2>選擇起始地點</h2>
+        <ul>
+          {% for c in setup_candidates %}
+            <li class="cand">
+              <div class="cand-name">{{ c.display_name }}</div>
+              <div class="cand-meta">
+                {% if c.country_display %}
+                  <span class="cand-country">[{{ c.country_display }}]</span>
+                  ·
+                {% endif %}
+                {{ c.short_label }}
+                · ({{ "%.4f"|format(c.lat) }}, {{ "%.4f"|format(c.lon) }})
+              </div>
+              <form method="post" action="{{ url_for('setup_start') }}" class="setup-start-form">
+                <input type="hidden" name="lat" value="{{ c.lat }}">
+                <input type="hidden" name="lon" value="{{ c.lon }}">
+                <input type="hidden" name="display_name" value="{{ c.display_name }}">
+                <input type="hidden" name="radius_m" value="{{ default_radius_m }}">
+                <input type="hidden" name="setup_query" value="{{ setup_query|default('') }}">
+                <button type="submit" class="setup-start-btn"
+                        data-label-idle="以此地點開始"
+                        data-label-loading="載入地圖資料中…">以此地點開始</button>
+              </form>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+  </div>
+
+  <script>
+    // Progressive enhancement: if JS is off the forms still POST normally.
+    // Scope is strictly limited to .setup-start-form so the search form is untouched.
+    (function () {
+      var forms = document.querySelectorAll('form.setup-start-form');
+      if (!forms.length) return;
+      var overlay = document.getElementById('setup-loading-overlay');
+
+      forms.forEach(function (form) {
+        form.addEventListener('submit', function () {
+          // Disable every start button on the page so the player can't
+          // double-submit by clicking a different candidate while one is in flight.
+          document.querySelectorAll('.setup-start-btn').forEach(function (btn) {
+            var loading = btn.getAttribute('data-label-loading');
+            if (loading) btn.textContent = loading;
+            btn.disabled = true;
+            btn.setAttribute('aria-busy', 'true');
+          });
+          if (overlay) overlay.hidden = false;
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

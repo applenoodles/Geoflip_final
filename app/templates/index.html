@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeoFlip</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+</head>
+<body>
+  <div class="layout">
+
+    <aside class="sidebar">
+      <header class="brand">
+        <h1>Geo<span class="brand__accent">Flip</span></h1>
+        <span class="brand__turn">回合 {{ state.turn_index + 1 }} / {{ state.max_turns }}</span>
+      </header>
+
+      {% if not is_finished %}
+        <div class="turn-indicator turn-indicator--p{{ current_player_id }}">
+          <span class="turn-indicator__dot"></span>
+          <span class="turn-indicator__text">
+            目前換 <strong>Player {{ current_player_id }}</strong> 落子
+          </span>
+        </div>
+
+        {% if in_opening_phase %}
+          <div class="phase-banner phase-banner--opening">
+            開局階段（還要佈 {{ opening_remaining }} 子）
+            <small>點地圖上的中立 POI 直接佈子。</small>
+          </div>
+        {% else %}
+          <div class="phase-banner phase-banner--normal">
+            連線回合
+            <small>先點自己的 POI 選為起點，再點中立 POI 連線過去。</small>
+          </div>
+
+          <div id="source-status" class="source-status source-status--empty">
+            <div class="source-status__label">起點</div>
+            <div class="source-status__name" id="source-status-name">尚未選擇</div>
+            <button type="button" id="source-status-clear"
+                    class="btn btn--ghost btn--small" hidden>取消</button>
+          </div>
+
+          <form method="post" action="{{ url_for('pass_turn') }}" class="pass-form">
+            <button type="submit" class="btn btn--ghost btn--block"
+                    onclick="return confirm('確定要跳過這一回合嗎？兩次連續跳過會直接結束遊戲。');">
+              跳過本回合
+            </button>
+          </form>
+        {% endif %}
+      {% endif %}
+
+      <section class="scoreboard">
+        <div class="score-card score-card--p1{% if not is_finished and current_player_id == 1 %} is-active{% endif %}">
+          {% if not is_finished and current_player_id == 1 %}<span class="score-card__turn-tag">你的回合</span>{% endif %}
+          <div class="score-card__name">PLAYER 1</div>
+          <div class="score-card__score">{{ scores[1] }}</div>
+          <div class="score-card__meta">{{ owned_counts[1] }} POI</div>
+        </div>
+        <div class="score-card score-card--p2{% if not is_finished and current_player_id == 2 %} is-active{% endif %}">
+          {% if not is_finished and current_player_id == 2 %}<span class="score-card__turn-tag">你的回合</span>{% endif %}
+          <div class="score-card__name">PLAYER 2</div>
+          <div class="score-card__score">{{ scores[2] }}</div>
+          <div class="score-card__meta">{{ owned_counts[2] }} POI</div>
+        </div>
+      </section>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <ul class="flashes">
+            {% for cat, msg in messages %}
+              <li class="flash {{ cat }}"{% if cat == 'success' %} data-auto-dismiss="2500"{% endif %}>{{ msg }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      {% endwith %}
+
+      {% if is_finished %}
+        <section class="panel summary">
+          <h2 class="panel__title">對局總結</h2>
+          <p class="winner{% if winner %} player-{{ winner }}{% endif %}">
+            {% if winner %}Player {{ winner }} 勝利{% else %}平手{% endif %}
+          </p>
+          <div class="summary__grid">
+            <div class="summary__row"><span>最終分數 P1</span><span>{{ scores[1] }}</span></div>
+            <div class="summary__row"><span>最終分數 P2</span><span>{{ scores[2] }}</span></div>
+            <div class="summary__row"><span>P1 擁有 POI</span><span>{{ owned_counts[1] }}</span></div>
+            <div class="summary__row"><span>P2 擁有 POI</span><span>{{ owned_counts[2] }}</span></div>
+            <div class="summary__row"><span>總翻面次數</span><span>{{ total_flips }}</span></div>
+            <div class="summary__row"><span>總路線數</span><span>{{ total_routes }}</span></div>
+          </div>
+        </section>
+      {% endif %}
+
+      {% if routes_info %}
+        <section class="panel routes-info">
+          <h2 class="panel__title">路線紀錄</h2>
+          <ul class="routes-list">
+            {% for r in routes_info %}
+              <li class="route-item">
+                <span class="route-item__turn">#{{ r.turn }}</span>
+                <span class="badge player-{{ r.player }}">P{{ r.player }}</span>
+                <span class="route-item__body">
+                  步行 <strong>{{ r.distance_m }} m</strong>（{{ r.mins }} 分 {{ r.secs }} 秒）
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
+
+      <section class="panel rules-help">
+        <details>
+          <summary>遊戲規則說明</summary>
+          <ol class="rules-list">
+            <li>共 {{ state.max_turns }} 回合，兩位玩家在同一台機器上輪流。</li>
+            <li>每位玩家前 {{ opening_moves_per_player }} 手是「開局階段」：直接點中立 POI 佈子，不畫路線、不翻面。</li>
+            <li>開局佈完後進入連線回合：先點自己的 POI 當起點，再點中立 POI 連線過去。</li>
+            <li>後端用 OSRM 算起點到目標的步行路線；超過 {{ max_walk_seconds // 60 }} 分鐘（{{ max_walk_seconds }} 秒）無效。</li>
+            <li>合法時目標 POI 一定變成你的。</li>
+            <li>沿著路線畫 {{ buffer_normal_m }}m 影響範圍：
+              <ul>
+                <li>範圍內若有任何中立 POI → 路線被阻斷，只翻目標。</li>
+                <li>範圍內沒有中立 POI → 所有對手 POI 都翻給你。</li>
+              </ul>
+            </li>
+            <li>無路可走時可以跳過本回合；連續兩次跳過結束遊戲。</li>
+            <li>分數即時依目前 POI 擁有者計算，相同則平手。</li>
+          </ol>
+        </details>
+      </section>
+
+      <section class="newgame">
+        <form method="post" action="{{ url_for('new_game_route') }}">
+          <button type="submit" class="btn btn--ghost btn--block">新開局</button>
+        </form>
+      </section>
+    </aside>
+
+    <main class="map-pane">
+      <iframe src="{{ map_iframe_src }}" width="100%" height="100%"></iframe>
+    </main>
+
+  </div>
+
+  <script>
+    // Listen for source selection messages from the map iframe.
+    (function () {
+      var statusEl = document.getElementById('source-status');
+      var nameEl = document.getElementById('source-status-name');
+      var clearBtn = document.getElementById('source-status-clear');
+      if (!statusEl) return;
+
+      function render(payload) {
+        if (payload && payload.id) {
+          statusEl.classList.remove('source-status--empty');
+          statusEl.classList.add('source-status--set');
+          nameEl.textContent = payload.name || payload.id;
+          clearBtn.hidden = false;
+        } else {
+          statusEl.classList.add('source-status--empty');
+          statusEl.classList.remove('source-status--set');
+          nameEl.textContent = '尚未選擇';
+          clearBtn.hidden = true;
+        }
+      }
+
+      window.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'geoflip-source') {
+          render(e.data.payload);
+        }
+      });
+
+      clearBtn.addEventListener('click', function () {
+        var iframe = document.querySelector('.map-pane iframe');
+        if (iframe && iframe.contentWindow && iframe.contentWindow.GeoflipClearSource) {
+          iframe.contentWindow.GeoflipClearSource();
+        } else {
+          render(null);
+        }
+      });
+
+      // Read directly from localStorage on first paint so a refresh still shows
+      // the currently-selected source without waiting for the iframe to load.
+      try {
+        var key = 'geoflip_src_{{ game_id }}_{{ state.turn_index }}';
+        var raw = window.localStorage.getItem(key);
+        if (raw) render(JSON.parse(raw));
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
+
+  <script>
+    // Auto-dismiss success flashes only; errors stay until reload.
+    (function () {
+      var FADE_MS = 400;
+      var nodes = document.querySelectorAll('.flash[data-auto-dismiss]');
+      Array.prototype.forEach.call(nodes, function (el) {
+        var delay = parseInt(el.getAttribute('data-auto-dismiss'), 10) || 2500;
+        setTimeout(function () {
+          el.classList.add('flash--dismissing');
+          setTimeout(function () { el.remove(); }, FADE_MS);
+        }, delay);
+      });
+    })();
+  </script>
+</body>
+</html>
