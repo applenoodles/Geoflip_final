@@ -1,102 +1,78 @@
-"""Projection + buffer helpers.
-
-All distance work happens in projected meter coordinates (UTM).
-WGS84 ↔ UTM transformers ALWAYS use `always_xy=True` so the API is (lon, lat) → (x, y).
-"""
-from __future__ import annotations
+# =====================================================================
+# 幾何計算：把路線「加寬成一條 50 公尺的走廊」，再判斷哪些 POI 落在裡面。
+#
+# 為什麼需要這個檔案？
+#   地圖上的座標是「經緯度（度）」，但「度」沒辦法直接拿來量公尺
+#   （1 度經度在赤道≈111 公里，在台灣又不一樣）。
+#   所以要先用 pyproj 把經緯度換算成「公尺座標」，
+#   在公尺世界裡用 Shapely 把線加寬 50 公尺，再判斷點在不在裡面。
+#
+# 兩個套件的角色：
+#   pyproj  → 座標轉換（經緯度 ↔ 公尺）
+#   shapely → 幾何運算（畫線、加寬成多邊形、判斷點是否在多邊形內）
+# =====================================================================
 
 from pyproj import CRS, Transformer
 from shapely.geometry import LineString, Point, Polygon
 
 
-# ---------------------------------------------------------------------------
-# CRS selection
-# ---------------------------------------------------------------------------
+def choose_metric_crs(lon, lat):
+    """挑一個適合這個地點的「公尺座標系」(UTM)。
 
-def choose_metric_crs(lon: float, lat: float) -> CRS:
+    地球被切成 60 個直條（UTM zone），每條 6 度寬。
+    依照經度算出落在第幾條，就用那條對應的公尺座標系，誤差最小。
     """
-    Return a UTM CRS suited for buffering near (lon, lat).
-
-    UTM zone = floor((lon + 180) / 6) + 1, clamped to [1, 60].
-    North hemisphere: EPSG 326{zone:02d}; South: EPSG 327{zone:02d}.
-    """
-    zone = int((lon + 180.0) // 6) + 1
+    zone = int((lon + 180.0) // 6) + 1   # 算出在第幾個直條
     if zone < 1:
         zone = 1
-    elif zone > 60:
+    if zone > 60:
         zone = 60
 
     if lat >= 0:
-        epsg = 32600 + zone
+        epsg = 32600 + zone   # 北半球
     else:
-        epsg = 32700 + zone
-
+        epsg = 32700 + zone   # 南半球
     return CRS.from_epsg(epsg)
 
 
-# ---------------------------------------------------------------------------
-# Transformers
-# ---------------------------------------------------------------------------
+def build_meter_transformers(reference_lon, reference_lat):
+    """做出兩個「座標轉換器」：一個把經緯度轉成公尺，一個轉回來。
 
-def build_meter_transformers(
-    reference_lon: float,
-    reference_lat: float,
-) -> tuple[Transformer, Transformer]:
-    """
-    Build (to_meters, to_wgs84) Transformer pair anchored near a reference point.
-
-    Both transformers use `always_xy=True` so the calling convention is:
-        to_meters.transform(lon, lat) -> (x_m, y_m)
-        to_wgs84.transform(x_m, y_m)  -> (lon, lat)
+    用法：
+        to_meters.transform(lon, lat) -> (x公尺, y公尺)
+        to_wgs84.transform(x, y)      -> (lon, lat)
+    always_xy=True 是固定要加的，確保順序都是 (經度, 緯度)。
     """
     metric_crs = choose_metric_crs(reference_lon, reference_lat)
-    wgs84 = CRS.from_epsg(4326)
+    wgs84 = CRS.from_epsg(4326)   # 4326 = 一般地圖用的經緯度座標系
 
     to_meters = Transformer.from_crs(wgs84, metric_crs, always_xy=True)
     to_wgs84 = Transformer.from_crs(metric_crs, wgs84, always_xy=True)
     return to_meters, to_wgs84
 
 
-# ---------------------------------------------------------------------------
-# Route / buffer helpers
-# ---------------------------------------------------------------------------
-
-def route_to_meter_linestring(
-    coordinates_lonlat: list[list[float]],
-    to_meters: Transformer,
-) -> LineString:
-    """
-    Project a GeoJSON-style [[lon, lat], ...] path to meter (x, y) and return a LineString.
-    Requires >= 2 coordinate pairs.
-    """
+def route_to_meter_linestring(coordinates_lonlat, to_meters):
+    """把 OSRM 給的路線（一串 [經度, 緯度] 點）轉成公尺座標的一條線。"""
     if len(coordinates_lonlat) < 2:
-        raise ValueError("LineString requires at least 2 coordinates")
+        raise ValueError("一條線至少要有 2 個點")
 
-    points_xy: list[tuple[float, float]] = []
+    points_xy = []
     for pair in coordinates_lonlat:
-        lon, lat = float(pair[0]), float(pair[1])
-        x, y = to_meters.transform(lon, lat)
+        lon = float(pair[0])
+        lat = float(pair[1])
+        x, y = to_meters.transform(lon, lat)   # 經緯度 → 公尺
         points_xy.append((x, y))
-    return LineString(points_xy)
+    return LineString(points_xy)   # 用這些點組成一條線
 
 
-def buffer_route_meters(line_meters: LineString, buffer_m: float) -> Polygon:
-    """Buffer a projected line by `buffer_m` METERS — never call on WGS84 geometry."""
+def buffer_route_meters(line_meters, buffer_m):
+    """把一條線往兩側「加寬」buffer_m 公尺，變成一個多邊形（走廊）。"""
     if buffer_m <= 0:
-        raise ValueError("buffer_m must be positive")
-    return line_meters.buffer(buffer_m)
+        raise ValueError("寬度必須大於 0")
+    return line_meters.buffer(buffer_m)   # shapely 的 buffer 就是加寬
 
 
-def point_in_buffer(
-    poi_lat: float,
-    poi_lon: float,
-    buffer_polygon: Polygon,
-    to_meters: Transformer,
-) -> bool:
-    """
-    True if the POI is inside (or exactly on the boundary of) the buffer polygon.
-
-    Uses `covers` so boundary points are inclusive and not flaky.
-    """
-    x, y = to_meters.transform(poi_lon, poi_lat)
-    return buffer_polygon.covers(Point(x, y))
+def point_in_buffer(poi_lat, poi_lon, buffer_polygon, to_meters):
+    """判斷某個 POI 是否落在走廊（多邊形）裡面（含邊界）。"""
+    x, y = to_meters.transform(poi_lon, poi_lat)   # 先把 POI 也換成公尺
+    return buffer_polygon.covers(Point(x, y))      # covers：在裡面或正好在邊上都算

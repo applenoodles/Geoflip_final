@@ -4,6 +4,8 @@
 
 > 「黑白棋 + 真實步行路徑」：先佈開局子，之後連連看搶地盤。
 
+> 想看「每一行在做什麼」的逐檔說明，請看 [`程式講解.md`](程式講解.md)。
+
 ---
 
 ## 玩法
@@ -27,22 +29,20 @@
 需要 Python 3.11+。
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate          # Windows（macOS/Linux: source .venv/bin/activate）
-pip install -e ".[dev]"
+pip install -e .             # 安裝套件（只需做一次）
 
-cp .env.example .env            # 編輯 NOMINATIM_USER_AGENT / NOMINATIM_EMAIL 成你自己的
+python -m app.web           # 啟動，開 http://127.0.0.1:5000/
 
-python -m app.web               # 啟動，開 http://127.0.0.1:5000/
+python check_rules.py        # （可選）跑規則檢查，全部 PASS 代表規則正常
 ```
 
-測試：`python -m pytest`（HTTP 全 mock，不打真網路）。
+> 在學校網路若遇到 SSL 憑證錯誤，見最下方 Troubleshooting。
 
 ---
 
 ## 可調參數
 
-全部在 `app/config.py`（改引號裡的值或設同名環境變數），改完**重啟 server**：
+全部在 [`app/config.py`](app/config.py)，就是一堆普通常數，改數字即可，改完**重啟 server**：
 
 | 變數 | 預設 | 用途 |
 |---|---|---|
@@ -52,12 +52,10 @@ python -m app.web               # 啟動，開 http://127.0.0.1:5000/
 | `GAME_BUFFER_NORMAL_M` | 50 | 路線影響範圍寬度（公尺） |
 | `OVERPASS_RADIUS_M` / `MIN_SPACING_M` | 500 / 30 | 抓 POI 的半徑與最小間距 |
 | `OVERPASS_MIN_POIS` / `MAX_POIS` | 18 / 36 | 棋盤 POI 數量範圍 |
-| `NOMINATIM_USER_AGENT` / `EMAIL` | — | **Nominatim 必需**，換成你自己的真實聯絡資訊 |
+| `NOMINATIM_USER_AGENT` / `EMAIL` | — | Nominatim 建議填真實聯絡資訊 |
 | `OSRM_BASE_URL` / `OSRM_PROFILE` | 公開步行 demo | profile 須為 `foot` |
 | `DEFAULT_CENTER_LAT/LON/ZOOM` | 台北 | 初始地圖視角 |
 | `STATE_FILE` | data/state.json | JSON 存檔路徑 |
-
-> 地圖視角會記在瀏覽器 localStorage，每手 reload 後維持你的縮放/平移，不跳回預設。
 
 ---
 
@@ -75,28 +73,42 @@ python -m app.web               # 啟動，開 http://127.0.0.1:5000/
 
 ## 架構
 
+後端是一個 **stateless Flask app**：每次請求都「讀 JSON 存檔 → 算 → 寫回」。
+沒有資料庫、沒有記憶體狀態。整場遊戲就是一個 **字典 `state`**，存成 `data/state.json`。
+程式全部用基礎 Python（dict / list / 函式）寫，沒有 class / dataclass。
+
 ```
 app/
-  config.py       Config dataclass（讀 env / 預設值）
-  models.py       Poi / RouteRecord / MoveRecord / GameState 與 score_poi()
-  state.py        new_game() + StateStore（atomic JSON 讀寫）
-  web.py          Flask app factory + 所有 routes
-  game/rules.py   RulesEngine（純規則，不碰 I/O）
-  services/       nominatim / overpass / osrm / geometry
+  config.py       設定值（一堆普通常數）
+  models.py       state / POI 的建立與小計算（score_poi、scores、current_player_id…）
+  state.py        load_state / save_state / reset_state（JSON 讀寫）
+  web.py          Flask 路由（@app.route 把網址綁到函式）
+  game/rules.py   apply_move / apply_pass（純規則，回傳結果字典）
+  services/       nominatim / overpass / osrm（連線函式）/ geometry（Shapely+pyproj）
   map/render.py   render_map_html() — Folium 輸出
   templates/ static/
-tests/            全部 mock 外部 API
+```
+
+一次落子的資料流：
+
+```
+瀏覽器 POST /move → web.py → game/rules.py（中途呼叫 services/osrm.py）
+   → state.py 存檔 → 轉址 GET / → web.py 重畫，地圖由 map/render.py 用 Folium 產生
 ```
 
 ---
 
 ## Troubleshooting
 
-- **Nominatim 403/429**：`NOMINATIM_USER_AGENT` 必須是真實聯絡資訊、間隔 ≥ 1s。
-- **OSRM 找不到路線**：公開 demo 不穩，重試或自架 `foot` profile。
-- **State file invalid JSON**：程式不 silent reset，手動修或 `rm data/state.json`，或在遊戲中按「新開局」。
-- **地圖/popup 沒更新**：iframe 已自動 cache-bust，極端情況 Ctrl+Shift+R。
+- **Nominatim 搜尋回 403 Forbidden**：Nominatim 規定 `User-Agent` 必須能識別你的程式並附「真實」聯絡信箱
+  （用 `example.com` 之類的假信箱會被擋）。改 `app/config.py` 的 `NOMINATIM_USER_AGENT` / `NOMINATIM_EMAIL`
+  成你自己的學號/信箱即可。
+- **SSL 憑證錯誤（學校網路常見）**：學校網路攔截造成。臨時解法：在 `app/services/` 內
+  `httpx.get(...)` / `httpx.post(...)` 那幾行加上 `verify=False`（關閉憑證檢查，僅作業用）。
+- **OSRM 找不到路線**：公開 demo 不穩，重試或換地點。
+- **Overpass「附近 POI 太少」**：換人口密集一點的地點，或把 `OVERPASS_RADIUS_M` 調大。
+- **想重來**：遊戲中按「新開局」，或直接刪掉 `data/state.json`。
 
 ## 已知限制
 
-本機 hotseat，無帳號/連線多人；公開 Nominatim/OSRM/Overpass 不穩且限流，重度使用請自架；棋盤 POI 在 setup 鎖定，遊戲中不再新增。
+本機 hotseat，無帳號/連線多人；公開 Nominatim/OSRM/Overpass 不穩且限流；棋盤 POI 在 setup 鎖定，遊戲中不再新增。

@@ -1,69 +1,45 @@
-"""JSON state store —— GeoFlip 的「資料庫」。
-
-整場遊戲只有一個 GameState，存成一個 JSON 檔（data/state.json）。
-寫檔用 tmp + replace 的 atomic write，避免寫到一半當機留下半套檔案。
-JSON 壞掉時要明確 raise，絕不 silent reset，否則玩家的資料會神秘消失。
-"""
-from __future__ import annotations
+# =====================================================================
+# 「存檔」相關：把整場遊戲的 state 字典存成一個 JSON 檔，或讀回來。
+#
+# JSON 是一種文字格式，長得跟 Python 的字典/串列幾乎一樣，
+# 所以我們的 state（一個大字典）可以很自然地存成 JSON 檔。
+#
+# 原本這裡用了 class 跟「先寫暫存檔再換掉」的防當機寫法，
+# 現在改成最單純的：要存就直接寫檔、要讀就直接讀檔。
+# =====================================================================
 
 import json
 import os
-import uuid
-from datetime import datetime, timezone
-from pathlib import Path
 
-from app.models import GameState, PlayerState
+from app.models import new_game
 
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+def load_state(path, max_turns=20):
+    """讀取存檔。
+
+    如果存檔還不存在（第一次玩、或剛開新局），就回傳一場全新遊戲。
+    """
+    if not os.path.exists(path):
+        return new_game(max_turns)
+
+    # with open(...) 會自動幫我們把檔案開好、用完關掉
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)   # 把 JSON 文字轉回 Python 字典
 
 
-def new_game(max_turns: int = 20) -> GameState:
-    now = _now_iso()
-    return GameState(
-        game_id="game_" + uuid.uuid4().hex,
-        turn_index=0,
-        max_turns=max_turns,
-        players={
-            1: PlayerState(id=1, name="Player 1"),
-            2: PlayerState(id=2, name="Player 2"),
-        },
-        pois=[],
-        routes=[],
-        moves=[],
-        created_at=now,
-        updated_at=now,
-        status="active",
-    )
+def save_state(path, state):
+    """把目前的 state 存回檔案。"""
+    # 確定資料夾存在（例如 data/ 第一次還沒被建出來）
+    folder = os.path.dirname(path)
+    if folder and not os.path.exists(folder):
+        os.makedirs(folder)
+
+    with open(path, "w", encoding="utf-8") as f:
+        # ensure_ascii=False 讓中文正常顯示；indent=2 讓檔案排版好看
+        json.dump(state, f, ensure_ascii=False, indent=2)
 
 
-class StateStore:
-    def __init__(self, path: str | os.PathLike, max_turns: int = 20) -> None:
-        self._path = Path(path)
-        self._max_turns = max_turns
-
-    def load(self) -> GameState:
-        if not self._path.exists():
-            return new_game(max_turns=self._max_turns)
-        raw = self._path.read_text(encoding="utf-8")
-        try:
-            data = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                f"State file {self._path} contains invalid JSON: {exc}"
-            ) from exc
-        return GameState.from_dict(data)
-
-    def save(self, state: GameState) -> None:
-        self._path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = self._path.with_suffix(".tmp")
-        tmp.write_text(
-            json.dumps(state.to_dict(), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-        tmp.replace(self._path)
-
-    def reset(self) -> None:
-        if self._path.exists():
-            self._path.unlink()
+def reset_state(path):
+    """刪掉存檔（按「新開局」時用）。"""
+    if os.path.exists(path):
+        os.remove(path)

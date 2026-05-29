@@ -12,20 +12,8 @@ dependencies = [
     "shapely>=2.0",
     "pyproj>=3.6",
     "httpx>=0.27",
-    "certifi>=2024.0.0",
-    "truststore>=0.10.0",
-    "python-dotenv>=1.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0",
-    "pytest-mock>=3.14",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]

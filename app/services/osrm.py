@@ -1,115 +1,66 @@
-from __future__ import annotations
+# =====================================================================
+# OSRM：算「兩點之間的步行路線」與「要走幾秒」。
+#
+# 這是遊戲規則「步行超過 600 秒就無效」會用到的服務。
+# 我們把起點、終點的經緯度組成一個網址丟給 OSRM，
+# 它回我們一條路線（一串座標）以及距離、時間。
+#
+# 原本這裡是一個 class，還有快取、SSL 設定。現在只留一支函式。
+# =====================================================================
 
 import httpx
 
-from app.models import RouteResult
-from app.services.tls import build_ssl_context, is_certificate_verify_error
+from app.config import OSRM_BASE_URL, OSRM_PROFILE, REQUEST_TIMEOUT_SECONDS
 
 
-class OsrmError(Exception):
-    """Raised when an OSRM API call fails for any reason."""
+def osrm_route(from_lat, from_lon, to_lat, to_lon):
+    """跟 OSRM 要一條步行路線。
 
-
-class OsrmClient:
+    成功 → 回傳一個字典：
+        {"coordinates_lonlat": [[經度, 緯度], ...],
+         "distance_m": 距離公尺,
+         "duration_s": 步行秒數}
+    失敗（沒網路、找不到路、逾時…）→ raise 一個 Exception，
+    呼叫它的規則引擎會把這一手當成無效。
     """
-    Thin wrapper around the OSRM routing API.
+    # OSRM 的網址規定座標順序是「經度,緯度」
+    url = (
+        OSRM_BASE_URL.rstrip("/")
+        + "/route/v1/" + OSRM_PROFILE + "/"
+        + str(from_lon) + "," + str(from_lat) + ";"
+        + str(to_lon) + "," + str(to_lat)
+    )
+    params = {
+        "overview": "full",       # 要完整的路線座標
+        "geometries": "geojson",  # 座標格式
+        "steps": "false",
+        "annotations": "false",
+    }
 
-    IMPORTANT — coordinate order:
-    - Request URL path : lon,lat  (OSRM convention)
-    - Response GeoJSON : [lon, lat]  (preserved as-is → RouteResult)
-    - Folium / Shapely : caller's responsibility to reorder
-    """
+    # try：嘗試連線並讀資料；except：只要出任何錯就改成丟一個清楚的訊息
+    try:
+        resp = httpx.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+        resp.raise_for_status()   # 如果 HTTP 狀態是錯誤(如 404)就會在這裡出錯
+        data = resp.json()        # 把回應的 JSON 轉成 Python 字典
+    except Exception as exc:
+        raise Exception("OSRM 連線失敗：" + str(exc))
 
-    def __init__(
-        self,
-        base_url: str,
-        profile: str = "foot",
-        timeout_seconds: float = 10.0,
-    ) -> None:
-        self._base_url = base_url.rstrip("/")
-        self._profile = profile
-        self._timeout = timeout_seconds
-        self._cache: dict[tuple[float, float, float, float, str], RouteResult] = {}
-        self._ssl_context = build_ssl_context()
+    # OSRM 回應裡會有一個 code，"Ok" 才代表成功
+    if data.get("code") != "Ok":
+        raise Exception("找不到步行路線")
 
-    def route(
-        self,
-        from_lat: float,
-        from_lon: float,
-        to_lat: float,
-        to_lon: float,
-    ) -> RouteResult:
-        """
-        Request a walking route from OSRM.
+    routes = data.get("routes", [])
+    if not routes:
+        raise Exception("找不到步行路線")
 
-        URL format: /route/v1/{profile}/{from_lon},{from_lat};{to_lon},{to_lat}
-        Returns RouteResult with coordinates in [lon, lat] GeoJSON order.
-        Raises OsrmError on any failure.
-        """
-        cache_key = (from_lat, from_lon, to_lat, to_lon, self._profile)
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+    route = routes[0]
+    coordinates = route.get("geometry", {}).get("coordinates", [])
+    if len(coordinates) < 2:
+        raise Exception("OSRM 回傳的路線點太少")
 
-        # OSRM path uses lon,lat order
-        url = (
-            f"{self._base_url}/route/v1/{self._profile}/"
-            f"{from_lon},{from_lat};{to_lon},{to_lat}"
-        )
-        params = {
-            "overview": "full",
-            "geometries": "geojson",
-            "steps": "false",
-            "annotations": "false",
-        }
-
-        try:
-            with httpx.Client(timeout=self._timeout, verify=self._ssl_context) as client:
-                resp = client.get(url, params=params)
-                resp.raise_for_status()
-                data: dict = resp.json()
-        except httpx.TimeoutException as exc:
-            raise OsrmError("OSRM request timed out") from exc
-        except httpx.HTTPStatusError as exc:
-            raise OsrmError(
-                f"OSRM HTTP error {exc.response.status_code}"
-            ) from exc
-        except httpx.RequestError as exc:
-            if is_certificate_verify_error(exc):
-                raise OsrmError(
-                    "SSL 憑證驗證失敗，請更新 certifi/truststore 或確認系統根憑證"
-                ) from exc
-            raise OsrmError(f"OSRM request error: {exc}") from exc
-        except (ValueError, KeyError) as exc:
-            raise OsrmError(f"OSRM response parse error: {exc}") from exc
-
-        osrm_code: str = data.get("code", "")
-        if osrm_code != "Ok":
-            if osrm_code in {"ProfileNotFound", "InvalidService", "InvalidVersion"}:
-                raise OsrmError(
-                    "OSRM walking profile 設定可能不正確，請檢查 OSRM_PROFILE"
-                )
-            if osrm_code in {"NoRoute", "NoSegment"}:
-                raise OsrmError("找不到步行路線")
-            raise OsrmError(f"OSRM error code: {osrm_code!r}")
-
-        routes: list[dict] = data.get("routes", [])
-        if not routes:
-            raise OsrmError("找不到步行路線")
-
-        route = routes[0]
-        coordinates: list[list[float]] = (
-            route.get("geometry", {}).get("coordinates", [])
-        )
-        if len(coordinates) < 2:
-            raise OsrmError(
-                "OSRM route geometry has fewer than 2 coordinates"
-            )
-
-        result = RouteResult(
-            # GeoJSON coordinates are already [lon, lat] — keep as-is
-            coordinates_lonlat=coordinates,
-            distance_m=float(route["distance"]),
-            duration_s=float(route["duration"]),
-        )
-        self._cache[cache_key] = result
-        return result
+    return {
+        # OSRM 給的座標已經是 [經度, 緯度]，直接沿用
+        "coordinates_lonlat": coordinates,
+        "distance_m": float(route["distance"]),
+        "duration_s": float(route["duration"]),
+    }
