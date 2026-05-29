@@ -81,8 +81,12 @@ def test_new_game_status_active():
     assert not state.is_finished()
 
 
-def test_new_game_12_max_turns():
-    assert new_game().max_turns == 12
+def test_new_game_default_max_turns():
+    assert new_game().max_turns == 20
+
+
+def test_new_game_max_turns_override():
+    assert new_game(max_turns=12).max_turns == 12
 
 
 # --- finished / current player --------------------------------------------
