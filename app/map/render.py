@@ -162,6 +162,54 @@ def _latest_route_overlay(state):
 
 
 # ---------------------------------------------------------------------
+# 美化 popup（點開圓點後那個小視窗）的外觀
+#
+# popup 的「外框、叉叉 X、字體」都是 Folium 底層的 Leaflet 預設長相，很醜、
+# 中文字體也會掉到難看的預設字。這裡塞一段 CSS 進地圖頁的 <head>，
+# 把它改成跟側邊欄（app.css）一致的乾淨樣子：圓角、低調的 X、好看的字體。
+# 這只改「外觀」，不改任何遊戲行為。
+# ---------------------------------------------------------------------
+
+def _popup_style():
+    return """
+<style>
+  /* popup 外框：圓角 + 柔和陰影 + 淡邊框 */
+  .leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 6px 16px rgba(16, 24, 40, 0.12);
+    border: 1px solid #e6e8ec;
+  }
+  /* popup 內文：換成跟整個網站一樣的字體，留點內距 */
+  .leaflet-popup-content {
+    margin: 12px 14px;
+    font-family: -apple-system, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #16181d;
+  }
+  /* popup 下方那個小三角，陰影要跟外框一致 */
+  .leaflet-popup-tip {
+    box-shadow: 0 6px 16px rgba(16, 24, 40, 0.12);
+  }
+  /* 右上角的關閉叉叉：改成低調的灰色，滑過去才變深 */
+  .leaflet-popup-close-button {
+    color: #939aa6 !important;
+    font-size: 18px !important;
+    font-weight: 400 !important;
+    padding: 6px 8px 0 0 !important;
+  }
+  .leaflet-popup-close-button:hover { color: #16181d !important; }
+  /* popup 裡的按鈕：跟著用網站字體，圓角稍微大一點（只改外觀，不動顏色） */
+  .leaflet-popup-content button {
+    font-family: inherit;
+    font-weight: 600;
+    border-radius: 6px !important;
+  }
+</style>
+"""
+
+
+# ---------------------------------------------------------------------
 # 嵌進地圖頁的 JavaScript（負責跨 iframe 的「選起點」互動）
 # 這段是網頁互動，必須維持原樣，UI 行為才不會變。
 # ---------------------------------------------------------------------
@@ -172,6 +220,7 @@ def _page_script(game_id, turn_index):
 (function() {
   var KEY = "geoflip_src_GAMEID_TURNINDEX";
   var TOP = (function() { try { return window.top; } catch (e) { return window; } })();
+  var MAP = null;   // 等地圖載好後存進來，之後用它來關閉 popup
 
   function getStore() {
     try { return TOP.localStorage; } catch (e) { return localStorage; }
@@ -210,6 +259,8 @@ def _page_script(game_id, turn_index):
     setCached({ id: poiId, name: poiName });
     notifyParent({ id: poiId, name: poiName });
     hydrateAll();
+    var m = MAP || findMap();
+    if (m) m.closePopup();   // 選完起點就把小視窗收起來，不用再按叉叉
   };
 
   window.GeoflipClearSource = function() {
@@ -243,8 +294,8 @@ def _page_script(game_id, turn_index):
   };
 
   document.addEventListener("DOMContentLoaded", function() {
-    var map = findMap();
-    if (map) map.on("popupopen", hydrateAll);
+    MAP = findMap();
+    if (MAP) MAP.on("popupopen", hydrateAll);
     hydrateAll();
   });
 
@@ -333,8 +384,15 @@ def render_map_html(state):
         ]
         fmap.fit_bounds(bounds, padding=(20, 20))
 
-    # --- 把我們的 JavaScript 塞進 Folium 產生的 HTML 裡 ---
+    # --- 把美化 popup 的 CSS 塞進 <head> ---
     html = fmap.get_root().render()
+    style = _popup_style()
+    if "</head>" in html:
+        html = html.replace("</head>", style + "</head>")
+    else:
+        html = style + html
+
+    # --- 把我們的 JavaScript 塞進 Folium 產生的 HTML 裡 ---
     script = _page_script(state.game_id, state.turn_index)
     if "</body>" in html:
         html = html.replace("</body>", script + "</body>")
