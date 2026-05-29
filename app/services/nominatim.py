@@ -93,10 +93,7 @@ class NominatimClient:
                 "display_name": display_name, "lat": lat, "lon": lon,
                 "short_label": _short_label(result.get("class", ""), result.get("type", "")),
                 "country_display": _country_display(country_code, country_label),
-                "country_code": country_code,
             })
 
-        # 台灣的結果排前面（其他國家保留在後面）
-        taiwan = [c for c in candidates if c["country_code"] == "tw"]
-        others = [c for c in candidates if c["country_code"] != "tw"]
-        return taiwan + others
+        # params 已寫死 countrycodes=tw（只搜台灣），不必再額外排序國家
+        return candidates

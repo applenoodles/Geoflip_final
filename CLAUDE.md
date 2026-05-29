@@ -90,7 +90,7 @@ all removed for simplicity.
    - If **`GAME_BLOCK_NEUTRAL_COUNT` (default 2) or more** neutral POIs lie in the buffer → route is "blocked", only the target flips. `move_kind="route"`. (Set the knob to 1 for the original "any single neutral blocks" behavior; higher = flips happen more often / more tug-of-war.)
    - Otherwise → all opponent POIs in the buffer flip. `move_kind="flip"`.
    - Own POIs in the buffer never block and never re-flip.
-6. **Pass** (`apply_pass()`): consumes a turn, adds a `move_kind="pass"` record, no owner change. Two consecutive passes end the game.
+6. **Pass** (`apply_pass()`): consumes a turn, adds a `move_kind="pass"` record, no owner change. Two consecutive passes end the game. **Not allowed during the opening phase** (server rejects it; the pass button is also only rendered in the normal phase).
 7. **End conditions**: `turn_index >= max_turns` OR no neutral POIs left OR two consecutive passes.
 8. **Invalid move is a complete no-op**: no `turn_index` change, no owner change, no route record. `apply_move` / `apply_pass` deepcopy state before any mutation.
 9. **`scores()` is always live** from current `poi.owner` — never cached.

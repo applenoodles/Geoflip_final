@@ -142,6 +142,11 @@ check("超時：被判無效", not res["ok"])
 check("超時：回合數沒前進", s.turn_index == 4)
 check("超時：目標仍是中立", s.get_poi("target").owner is None)
 
+# 規則6：開局階段不能跳過（一定要先佈子）
+s = GameState.new_game(max_turns=20)
+s.pois = [poi_at("a", 0, 0, None)]
+check("開局：不能跳過", not engine.apply_pass(s)["ok"])
+
 # 規則6/7：連續兩次跳過 → 遊戲結束
 s = normal_phase_state()
 s.pois = [poi_at("a", 0, 0, None)]

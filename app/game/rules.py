@@ -14,6 +14,7 @@
 #        - 否則 → 走廊內所有「對手」POI 全部翻成自己的。
 #        - 自己的 POI 不會擋路、也不會被翻。
 #   5. 跳過(pass)：用掉一回合、不翻任何人；連續兩次跳過直接結束遊戲。
+#      （開局階段不能跳過，一定要先佈子。）
 #
 # 重要做法：先用「沒被改過的 state」做完所有檢查，全部通過後才
 # deepcopy（整份複製）一份來改。這樣無效的一手絕對不留下任何半套修改。
@@ -122,6 +123,10 @@ class RulesEngine:
             return _invalid(state, "遊戲已結束")
 
         cur = state.current_player_id()
+        # 開局階段一定要佈子，不能跳過（否則會浪費掉一手開局額度）
+        if state.in_opening_phase(cur, self.opening_moves):
+            return _invalid(state, "開局階段不能跳過，請先在中立 POI 佈子")
+
         new_state = deepcopy(state)    # 整份複製一份再改，不動到原本的
         new_state.moves.append({
             "turn_index": state.turn_index, "player_id": cur, "move_kind": "pass",
