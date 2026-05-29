@@ -175,7 +175,7 @@ def _latest_route_overlay(state: GameState) -> tuple[list[list[float]], list[lis
 # Public renderer
 # ---------------------------------------------------------------------------
 
-def _page_script(game_id: str, turn_index: int) -> str:
+def _page_script(game_id: str, turn_index: int, map_name: str) -> str:
     """Return iframe JS for source selection and target popup hydration."""
     return f"""
 <script>
@@ -184,6 +184,15 @@ def _page_script(game_id: str, turn_index: int) -> str:
   // 視角記憶用 game_id（不綁 turn）：同一盤每手之間都記得使用者的縮放/平移，
   // 開新局換 game_id 後自動失效，不會殘留上一盤的視角。
   var VIEW_KEY = "geoflip_view_{game_id}";
+  // 地圖容器一開始用 opacity:0 藏著（在 render 注入的 <style>），等視角還原好再顯示，
+  // 這樣使用者就不會看到「先畫 fit_bounds 棋盤中心、再跳到記憶視角」那一下閃爍。
+  var MAP_NAME = "{map_name}";
+  function revealMap() {{
+    try {{ var el = document.getElementById(MAP_NAME); if (el) el.style.opacity = "1"; }}
+    catch (e) {{}}
+  }}
+  // 安全網：萬一 DOMContentLoaded 沒跑到（極端情況），600ms 後一定顯示，絕不卡全黑。
+  setTimeout(revealMap, 600);
   var TOP = (function() {{ try {{ return window.top; }} catch (e) {{ return window; }} }})();
 
   function getStore() {{
@@ -285,6 +294,9 @@ def _page_script(game_id: str, turn_index: int) -> str:
       map.on("moveend", function() {{ saveView(map); }});
       map.on("zoomend", function() {{ saveView(map); }});
     }}
+    // 視角已同步就位（restore 或 fit_bounds 都在 opacity:0 期間完成），直接顯示。
+    // 不用 requestAnimationFrame —— 分頁未聚焦時 rAF 會被暫停，地圖會卡住不顯示。
+    revealMap();
     hydrateAll();
   }});
 
@@ -383,8 +395,17 @@ def render_map_html(state: GameState, config: Config) -> str:
         fmap.fit_bounds(bounds, padding=(20, 20))
 
     # --- Inject our page-level JS into the HTML ---
+    map_name = fmap.get_name()
     html = fmap.get_root().render()
-    script = _page_script(state.game_id, state.turn_index)
+
+    # 地圖容器一開始隱藏（opacity:0），等 _page_script 還原視角後才顯示，消除重載閃爍。
+    hide_style = f"<style>#{map_name}{{opacity:0;}}</style>"
+    if "</head>" in html:
+        html = html.replace("</head>", hide_style + "</head>", 1)
+    else:
+        html = hide_style + html
+
+    script = _page_script(state.game_id, state.turn_index, map_name)
     if "</body>" in html:
         html = html.replace("</body>", script + "</body>")
     else:
