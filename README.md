@@ -16,8 +16,8 @@
 1. 點自己的 POI 選為**起點**，再點中立 POI 選為**目標**。
 2. 後端用 OSRM 算步行路線；**超過上限秒數（預設 600s）→ 此手無效**。
 3. 合法時**目標一定翻成你的**，並沿路線畫影響範圍（預設 50m）：
-   - 範圍內有任何中立 POI → 路線被阻斷，只翻目標。
-   - 範圍內沒有中立 POI → 範圍內對手 POI 全翻給你。
+   - 範圍內有 `GAME_BLOCK_NEUTRAL_COUNT` 個（含）以上中立 POI（預設 2）→ 路線被阻斷，只翻目標。
+   - 中立 POI 少於該數量 → 範圍內對手 POI 全翻給你。
    - 自己的 POI 不阻斷、不會被反翻。
 
 **結束**：回合數用完 / 沒中立 POI 可下 / 連續兩次跳過。比分數，相同平手。非法落子完全不改變狀態。
@@ -50,6 +50,7 @@ python check_rules.py        # （可選）跑規則檢查，全部 PASS 代表�
 | `GAME_OPENING_MOVES_PER_PLAYER` | 2 | 每人開局佈子數 |
 | `GAME_MAX_WALK_SECONDS` | 600 | 連線步行秒數上限，越小越難 |
 | `GAME_BUFFER_NORMAL_M` | 50 | 路線影響範圍寬度（公尺） |
+| `GAME_BLOCK_NEUTRAL_COUNT` | 2 | 走廊內幾個（含）以上中立 POI 才阻斷；1=最難翻面、越大越容易翻（拉扯感旋鈕） |
 | `OVERPASS_RADIUS_M` / `MIN_SPACING_M` | 500 / 30 | 抓 POI 的半徑與最小間距 |
 | `OVERPASS_MIN_POIS` / `MAX_POIS` | 18 / 36 | 棋盤 POI 數量範圍 |
 | `NOMINATIM_USER_AGENT` / `EMAIL` | — | Nominatim 建議填真實聯絡資訊 |

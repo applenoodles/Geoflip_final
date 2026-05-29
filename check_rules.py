@@ -17,7 +17,7 @@ from app.models import GameState, Poi
 from app.game.rules import RulesEngine
 from app.services.geometry import build_meter_transformers
 
-engine = RulesEngine()   # 用預設規則參數（600 秒、50 公尺、開局 2 子）
+engine = RulesEngine()   # 用預設規則參數（600 秒、50 公尺、開局 2 子、阻斷門檻 2）
 
 
 # --- 小工具：用 pyproj 算出「離目標 N 公尺」的精確座標 ---
@@ -85,18 +85,39 @@ check("開局：回合數 +1", res["state"].turn_index == 1)
 res = engine.apply_move(s, "b", FakeOsrm(300), source_poi_id="a")   # 開局硬給起點
 check("開局：給了起點要被拒絕", not res["ok"])
 
-# 規則4 + 5a：走廊內有「中立」點 → 路線被擋，只翻目標
+# 規則4 + 5a：用「門檻=1」的引擎（等同原始規則：1 個中立點就擋）
+strict = RulesEngine(block_neutral_count=1)
 s = normal_phase_state()
 s.pois = [
     poi_at("source", 400, 0, 1),       # P1 的起點
     poi_at("target", 0, 0, None),      # 中立目標
     poi_at("opp", 200, 10, 2),         # 走廊內的對手
-    poi_at("blocker", 200, 20, None),  # 走廊內的中立點 → 會擋路
+    poi_at("blocker", 200, 20, None),  # 走廊內的中立點
 ]
-ns = engine.apply_move(s, "target", FakeOsrm(300), source_poi_id="source")["state"]
+ns = strict.apply_move(s, "target", FakeOsrm(300), source_poi_id="source")["state"]
 check("正常：目標一定翻給自己", ns.get_poi("target").owner == 1)
-check("阻斷：走廊有中立點 → 對手沒被翻", ns.get_poi("opp").owner == 2)
-check("阻斷：這手算 route（沒翻到人）", ns.moves[-1]["move_kind"] == "route")
+check("阻斷(門檻1)：1 個中立點就擋住，對手沒被翻", ns.get_poi("opp").owner == 2)
+check("阻斷(門檻1)：這手算 route（沒翻到人）", ns.moves[-1]["move_kind"] == "route")
+
+# 可調門檻：用「門檻=2」的引擎 → 1 個中立點擋不住、2 個才擋
+loose = RulesEngine(block_neutral_count=2)
+s = normal_phase_state()
+s.pois = [
+    poi_at("source", 400, 0, 1), poi_at("target", 0, 0, None),
+    poi_at("opp", 200, 10, 2),
+    poi_at("blocker", 200, 20, None),     # 只有 1 個中立點
+]
+ns = loose.apply_move(s, "target", FakeOsrm(300), source_poi_id="source")["state"]
+check("門檻2：只有 1 個中立點 → 擋不住，對手被翻", ns.get_poi("opp").owner == 1)
+
+s = normal_phase_state()
+s.pois = [
+    poi_at("source", 400, 0, 1), poi_at("target", 0, 0, None),
+    poi_at("opp", 200, 10, 2),
+    poi_at("blk1", 200, 20, None), poi_at("blk2", 150, -15, None),  # 2 個中立點
+]
+ns = loose.apply_move(s, "target", FakeOsrm(300), source_poi_id="source")["state"]
+check("門檻2：2 個中立點 → 擋住，對手沒被翻", ns.get_poi("opp").owner == 2)
 
 # 規則5b：走廊內沒有中立點 → 對手全翻；自己的點不會被翻
 s = normal_phase_state()

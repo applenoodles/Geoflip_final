@@ -9,8 +9,9 @@
 #      用 OSRM 算步行路線；步行超過 600 秒 → 無效。
 #   3. 目標一定被翻成自己的。
 #   4. 路線兩側 50 公尺的走廊：
-#        - 走廊內若有任何「中立」POI → 路線被擋住，這手只翻目標。
-#        - 走廊內沒有中立 POI → 走廊內所有「對手」POI 全部翻成自己的。
+#        - 走廊內若有 block_neutral_count 個（含）以上的「中立」POI（預設 2）→
+#          路線被擋住，這手只翻目標。（設成 1 就是原本「有任何中立點就擋」的規則）
+#        - 否則 → 走廊內所有「對手」POI 全部翻成自己的。
 #        - 自己的 POI 不會擋路、也不會被翻。
 #   5. 跳過(pass)：用掉一回合、不翻任何人；連續兩次跳過直接結束遊戲。
 #
@@ -27,6 +28,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 
 from app.config import (
+    GAME_BLOCK_NEUTRAL_COUNT,
     GAME_BUFFER_NORMAL_M,
     GAME_MAX_WALK_SECONDS,
     GAME_OPENING_MOVES_PER_PLAYER,
@@ -53,10 +55,12 @@ def _invalid(state, message):
 class RulesEngine:
     def __init__(self, max_walk_s=GAME_MAX_WALK_SECONDS,
                  buffer_m=GAME_BUFFER_NORMAL_M,
-                 opening_moves=GAME_OPENING_MOVES_PER_PLAYER):
+                 opening_moves=GAME_OPENING_MOVES_PER_PLAYER,
+                 block_neutral_count=GAME_BLOCK_NEUTRAL_COUNT):
         self.max_walk_s = max_walk_s
         self.buffer_m = buffer_m
         self.opening_moves = opening_moves
+        self.block_neutral_count = block_neutral_count   # 走廊內要幾個中立點才擋路
 
     # ------------------------------------------------------------------
 
@@ -179,11 +183,13 @@ class RulesEngine:
             if point_in_buffer(poi.lat, poi.lon, buffer_poly, to_meters):
                 in_buffer.append(poi)
 
-        # 3. 阻斷規則：走廊內只要有一個「中立」POI，整條路線就算被擋住
-        blocked = False
+        # 3. 阻斷規則：數一數走廊內有幾個「中立」POI；
+        #    達到門檻 self.block_neutral_count（含）就算被擋住，這手只翻目標。
+        neutral_count = 0
         for poi in in_buffer:
             if poi.owner is None:
-                blocked = True
+                neutral_count += 1
+        blocked = neutral_count >= self.block_neutral_count
 
         flipped_poi_ids = []
         if not blocked:

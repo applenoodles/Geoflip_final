@@ -66,7 +66,7 @@ is module-level.
 
 | Module | Role |
 |---|---|
-| `app/config.py` | Plain module-level constants only. Game knobs: `GAME_MAX_TURNS` (20), `GAME_OPENING_MOVES_PER_PLAYER` (2), `GAME_MAX_WALK_SECONDS` (600), `GAME_BUFFER_NORMAL_M` (50). Also `NOMINATIM_USER_AGENT`/`EMAIL` (must be real/identifiable or Nominatim returns 403). |
+| `app/config.py` | Plain module-level constants only. Game knobs: `GAME_MAX_TURNS` (20), `GAME_OPENING_MOVES_PER_PLAYER` (2), `GAME_MAX_WALK_SECONDS` (600), `GAME_BUFFER_NORMAL_M` (50), `GAME_BLOCK_NEUTRAL_COUNT` (2 — neutrals in the corridor needed to block a route). Also `NOMINATIM_USER_AGENT`/`EMAIL` (must be real/identifiable or Nominatim returns 403). |
 | `app/models.py` | `class Poi` (fields + `to_dict`/`from_dict`/`from_api`) and `class GameState` (`new_game`, `current_player_id`, `get_poi`, `scores`, `neutral_pois`, `in_opening_phase`, `to_dict`/`from_dict`, …). Plus module functions `score_poi()`, `mmss()`. No I/O. |
 | `app/state.py` | `class StateStore(path, max_turns)` with `load()` / `save(state)` / `reset()` using `open()` + `json`. Missing file → `GameState.new_game()`. |
 | `app/web.py` | Module-level `app = Flask(__name__)`; routes via `@app.route`. Instantiates the shared objects; routes call their methods. |
@@ -87,7 +87,7 @@ all removed for simplicity.
 3. **Normal moves** (after opening): require both `source_poi_id` (own POI) and `target_poi_id` (neutral POI). Server calls OSRM walking route source→target. If `duration_s > GAME_MAX_WALK_SECONDS` (default 600) → invalid (no state change).
 4. **Target always flips** to the current player on a valid normal move.
 5. **Blocker buffer rule** (the 50 m buffer around the route, excluding source/target):
-   - If **any** neutral POI lies in the buffer → route is "blocked", only the target flips. `move_kind="route"`.
+   - If **`GAME_BLOCK_NEUTRAL_COUNT` (default 2) or more** neutral POIs lie in the buffer → route is "blocked", only the target flips. `move_kind="route"`. (Set the knob to 1 for the original "any single neutral blocks" behavior; higher = flips happen more often / more tug-of-war.)
    - Otherwise → all opponent POIs in the buffer flip. `move_kind="flip"`.
    - Own POIs in the buffer never block and never re-flip.
 6. **Pass** (`apply_pass()`): consumes a turn, adds a `move_kind="pass"` record, no owner change. Two consecutive passes end the game.

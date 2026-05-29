@@ -36,6 +36,11 @@ GAME_MAX_TURNS = 20               # 整場總共幾回合
 GAME_OPENING_MOVES_PER_PLAYER = 2 # 每位玩家開局先佈幾顆子
 GAME_MAX_WALK_SECONDS = 600       # 連線時步行超過幾秒就算無效（10 分鐘）
 GAME_BUFFER_NORMAL_M = 50         # 路線兩側「影響範圍」的寬度（公尺）
+# 走廊內要「幾個（含）以上」中立 POI 才會把路線擋住（只翻目標、不翻對手）。
+#   1 = 原本規則（只要有 1 個中立點就被擋，最難翻面）
+#   2 = 預設（要 2 個以上才被擋，翻面變常見、比較有拉扯感）
+#   越大 → 越難被擋 → 越容易一路翻對手
+GAME_BLOCK_NEUTRAL_COUNT = 2
 
 # --- 其他 ---
 STATE_FILE = "data/state.json"    # 整場遊戲存檔的位置

@@ -120,8 +120,8 @@
             <li>合法時目標 POI 一定變成你的。</li>
             <li>沿著路線畫 {{ buffer_normal_m }}m 影響範圍：
               <ul>
-                <li>範圍內若有任何中立 POI → 路線被阻斷，只翻目標。</li>
-                <li>範圍內沒有中立 POI → 所有對手 POI 都翻給你。</li>
+                <li>範圍內有 {{ block_neutral_count }} 個（含）以上的中立 POI → 路線被阻斷，只翻目標。</li>
+                <li>中立 POI 少於 {{ block_neutral_count }} 個 → 範圍內所有對手 POI 都翻給你。</li>
               </ul>
             </li>
             <li>無路可走時可以跳過本回合；連續兩次跳過結束遊戲。</li>

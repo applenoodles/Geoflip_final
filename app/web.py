@@ -110,6 +110,7 @@ def index():
         routes_info=routes_info,
         max_walk_seconds=int(config.GAME_MAX_WALK_SECONDS),
         buffer_normal_m=int(config.GAME_BUFFER_NORMAL_M),
+        block_neutral_count=config.GAME_BLOCK_NEUTRAL_COUNT,
         map_iframe_src=map_iframe_src,
     )
 
