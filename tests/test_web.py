@@ -345,17 +345,6 @@ def test_new_game_resets_state(client, deps):
 # GET /map
 # ---------------------------------------------------------------------------
 
-def test_create_app_rejects_max_turns_below_opening_total():
-    config = Config(GAME_MAX_TURNS=3, GAME_OPENING_MOVES_PER_PLAYER=2)
-    with pytest.raises(ValueError, match="GAME_MAX_TURNS"):
-        create_app(config=config)
-
-
-def test_create_app_accepts_max_turns_at_opening_total():
-    config = Config(GAME_MAX_TURNS=4, GAME_OPENING_MOVES_PER_PLAYER=2)
-    create_app(config=config)
-
-
 def test_map_returns_html(client):
     resp = client.get("/map")
     assert resp.status_code == 200

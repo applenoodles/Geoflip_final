@@ -19,12 +19,12 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def new_game(max_turns: int = 20) -> GameState:
+def new_game() -> GameState:
     now = _now_iso()
     return GameState(
         game_id="game_" + uuid.uuid4().hex,
         turn_index=0,
-        max_turns=max_turns,
+        max_turns=20,
         players={
             1: PlayerState(id=1, name="Player 1"),
             2: PlayerState(id=2, name="Player 2"),
@@ -39,13 +39,12 @@ def new_game(max_turns: int = 20) -> GameState:
 
 
 class StateStore:
-    def __init__(self, path: str | os.PathLike, max_turns: int = 20) -> None:
+    def __init__(self, path: str | os.PathLike) -> None:
         self._path = Path(path)
-        self._max_turns = max_turns
 
     def load(self) -> GameState:
         if not self._path.exists():
-            return new_game(max_turns=self._max_turns)
+            return new_game()
         raw = self._path.read_text(encoding="utf-8")
         try:
             data = json.loads(raw)

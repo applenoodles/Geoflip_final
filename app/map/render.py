@@ -181,9 +181,6 @@ def _page_script(game_id: str, turn_index: int) -> str:
 <script>
 (function() {{
   var KEY = "geoflip_src_{game_id}_{turn_index}";
-  // 視角記憶用 game_id（不綁 turn）：同一盤每手之間都記得使用者的縮放/平移，
-  // 開新局換 game_id 後自動失效，不會殘留上一盤的視角。
-  var VIEW_KEY = "geoflip_view_{game_id}";
   var TOP = (function() {{ try {{ return window.top; }} catch (e) {{ return window; }} }})();
 
   function getStore() {{
@@ -208,35 +205,6 @@ def _page_script(game_id: str, turn_index: int) -> str:
     document.querySelectorAll('form[id^="tgt_"]').forEach(function(f) {{
       window.GeoflipHydrateTargetForm(f.id);
     }});
-  }}
-
-  function findMap() {{
-    var found = null;
-    Object.keys(window).forEach(function(name) {{
-      var m = window[name];
-      if (name.indexOf("map_") === 0 && m && m.on && m.setView) found = m;
-    }});
-    return found;
-  }}
-
-  function saveView(map) {{
-    try {{
-      var c = map.getCenter();
-      getStore().setItem(VIEW_KEY, JSON.stringify(
-        {{ lat: c.lat, lng: c.lng, zoom: map.getZoom() }}
-      ));
-    }} catch (e) {{}}
-  }}
-
-  function restoreView(map) {{
-    try {{
-      var raw = getStore().getItem(VIEW_KEY);
-      if (!raw) return;
-      var v = JSON.parse(raw);
-      if (v && isFinite(v.lat) && isFinite(v.lng) && isFinite(v.zoom)) {{
-        map.setView([v.lat, v.lng], v.zoom, {{ animate: false }});
-      }}
-    }} catch (e) {{}}
   }}
 
   window.GeoflipSetSource = function(poiId, poiName) {{
@@ -276,15 +244,12 @@ def _page_script(game_id: str, turn_index: int) -> str:
   }};
 
   document.addEventListener("DOMContentLoaded", function() {{
-    var map = findMap();
-    if (map) {{
-      map.on("popupopen", hydrateAll);
-      // 先還原上一手的視角（蓋掉 Folium 的 fit_bounds），再掛存檔監聽，
-      // 避免還原當下的 moveend 把預設視角寫回去。
-      restoreView(map);
-      map.on("moveend", function() {{ saveView(map); }});
-      map.on("zoomend", function() {{ saveView(map); }});
-    }}
+    Object.keys(window).forEach(function(name) {{
+      var maybeMap = window[name];
+      if (name.indexOf("map_") === 0 && maybeMap && maybeMap.on) {{
+        maybeMap.on("popupopen", hydrateAll);
+      }}
+    }});
     hydrateAll();
   }});
 

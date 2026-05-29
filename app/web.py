@@ -26,7 +26,7 @@ from flask import (
 from app.config import Config
 from app.game.rules import RulesEngine
 from app.map.render import render_map_html
-from app.models import mmss
+from app.models import OPENING_MOVES_PER_PLAYER, mmss
 from app.services.nominatim import NominatimClient, NominatimError
 from app.services.osrm import OsrmClient
 from app.services.overpass import OverpassClient, OverpassError
@@ -48,19 +48,8 @@ def create_app(
     """Flask app factory — all dependencies are injectable for tests."""
     if config is None:
         config = Config()
-
-    # 防呆：總回合數至少要能容納雙方的開局佈子，否則開局還沒結束遊戲就到上限。
-    opening_total = 2 * config.GAME_OPENING_MOVES_PER_PLAYER
-    if config.GAME_MAX_TURNS < opening_total:
-        raise ValueError(
-            f"GAME_MAX_TURNS={config.GAME_MAX_TURNS} 太小："
-            f"雙方開局共需 {opening_total} 回合"
-            f"（2 玩家 × GAME_OPENING_MOVES_PER_PLAYER="
-            f"{config.GAME_OPENING_MOVES_PER_PLAYER}），"
-            f"請把 GAME_MAX_TURNS 設為 >= {opening_total}。"
-        )
     if state_store is None:
-        state_store = StateStore(config.STATE_FILE, max_turns=config.GAME_MAX_TURNS)
+        state_store = StateStore(config.STATE_FILE)
     if nominatim_client is None:
         nominatim_client = NominatimClient(
             base_url=config.NOMINATIM_BASE_URL,
@@ -85,7 +74,6 @@ def create_app(
         rules_engine = RulesEngine(
             max_walk_duration_s=config.GAME_MAX_WALK_SECONDS,
             buffer_normal_m=config.GAME_BUFFER_NORMAL_M,
-            opening_moves_per_player=config.GAME_OPENING_MOVES_PER_PLAYER,
         )
 
     app = Flask(__name__, template_folder="templates", static_folder="static")
@@ -127,13 +115,12 @@ def create_app(
             preserved_q = (request.args.get("q") or "").strip()
             return _render_setup(setup_query=preserved_q)
 
-        opening_moves = config.GAME_OPENING_MOVES_PER_PLAYER
         current_player_id = state.current_player_id()
         in_opening_phase = state.in_opening_phase(
-            current_player_id, opening_moves
+            current_player_id, OPENING_MOVES_PER_PLAYER
         )
         opening_remaining = max(
-            0, opening_moves - state.player_move_count(current_player_id)
+            0, OPENING_MOVES_PER_PLAYER - state.player_move_count(current_player_id)
         )
 
         scores = state.scores()
@@ -164,7 +151,7 @@ def create_app(
             current_player_id=current_player_id,
             in_opening_phase=in_opening_phase,
             opening_remaining=opening_remaining,
-            opening_moves_per_player=opening_moves,
+            opening_moves_per_player=OPENING_MOVES_PER_PLAYER,
             scores=scores,
             winner=state.winner(),
             status=state.status,
