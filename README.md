@@ -74,26 +74,27 @@ python check_rules.py        # （可選）跑規則檢查，全部 PASS 代表�
 ## 架構
 
 後端是一個 **stateless Flask app**：每次請求都「讀 JSON 存檔 → 算 → 寫回」。
-沒有資料庫、沒有記憶體狀態。整場遊戲就是一個 **字典 `state`**，存成 `data/state.json`。
-程式全部用基礎 Python（dict / list / 函式）寫，沒有 class / dataclass。
+沒有資料庫、沒有記憶體狀態。整場遊戲是一個 `GameState` 物件，存成 `data/state.json`。
+程式用課堂教的 OOP 寫（`class` + `__init__` + 方法），連網用 `requests`。逐檔教學見 [`程式講解.md`](程式講解.md)。
 
 ```
 app/
   config.py       設定值（一堆普通常數）
-  models.py       state / POI 的建立與小計算（score_poi、scores、current_player_id…）
-  state.py        load_state / save_state / reset_state（JSON 讀寫）
+  models.py       class Poi、class GameState（資料 + 方法：scores / current_player_id…）
+  state.py        class StateStore（load / save / reset，JSON 讀寫）
   web.py          Flask 路由（@app.route 把網址綁到函式）
-  game/rules.py   apply_move / apply_pass（純規則，回傳結果字典）
-  services/       nominatim / overpass / osrm（連線函式）/ geometry（Shapely+pyproj）
+  game/rules.py   class RulesEngine（apply_move / apply_pass，回傳結果字典）
+  services/       class NominatimClient / OverpassClient / OsrmClient（requests）+ geometry（Shapely+pyproj 函式）
   map/render.py   render_map_html() — Folium 輸出
   templates/ static/
+check_rules.py    精簡規則檢查（離線、約 12 項）
 ```
 
 一次落子的資料流：
 
 ```
-瀏覽器 POST /move → web.py → game/rules.py（中途呼叫 services/osrm.py）
-   → state.py 存檔 → 轉址 GET / → web.py 重畫，地圖由 map/render.py 用 Folium 產生
+瀏覽器 POST /move → web.py → RulesEngine.apply_move(...)（中途呼叫 OsrmClient.route()）
+   → StateStore.save() → 轉址 GET / → web.py 重畫，地圖由 map/render.py 用 Folium 產生
 ```
 
 ---
@@ -104,7 +105,7 @@ app/
   （用 `example.com` 之類的假信箱會被擋）。改 `app/config.py` 的 `NOMINATIM_USER_AGENT` / `NOMINATIM_EMAIL`
   成你自己的學號/信箱即可。
 - **SSL 憑證錯誤（學校網路常見）**：學校網路攔截造成。臨時解法：在 `app/services/` 內
-  `httpx.get(...)` / `httpx.post(...)` 那幾行加上 `verify=False`（關閉憑證檢查，僅作業用）。
+  `requests.get(...)` / `requests.post(...)` 那幾行加上 `verify=False`（關閉憑證檢查，僅作業用）。
 - **OSRM 找不到路線**：公開 demo 不穩，重試或換地點。
 - **Overpass「附近 POI 太少」**：換人口密集一點的地點，或把 `OVERPASS_RADIUS_M` 調大。
 - **想重來**：遊戲中按「新開局」，或直接刪掉 `data/state.json`。

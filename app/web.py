@@ -6,6 +6,9 @@
 #   @app.route("/xxx")             「裝飾器」：把下面那個函式註冊成 /xxx 這個網址
 #   def xxx(): ...                 有人連到 /xxx 時就會執行這個函式
 #
+# 這個檔案開頭先「建立好要用的物件」（存檔倉庫、三個 API 服務、規則引擎），
+# 之後每個路由就直接呼叫它們的方法。
+#
 # 做法：每次有請求就「讀存檔 → 算規則 → 寫存檔 → 轉址回首頁」。
 # 不存任何記憶體狀態，重新整理也不會出錯。
 # =====================================================================
@@ -13,22 +16,13 @@
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 
 from app import config
-from app.game.rules import apply_move, apply_pass
+from app.game.rules import RulesEngine
 from app.map.render import render_map_html
-from app.models import (
-    current_player_id,
-    in_opening_phase,
-    is_finished,
-    merge_discovered_pois,
-    mmss,
-    owned_pois,
-    player_move_count,
-    scores,
-    winner,
-)
-from app.services.nominatim import search_locations
-from app.services.overpass import fetch_board_pois
-from app.state import load_state, reset_state, save_state
+from app.models import mmss
+from app.services.nominatim import NominatimClient
+from app.services.osrm import OsrmClient
+from app.services.overpass import OverpassClient
+from app.state import StateStore
 
 
 # 防呆：總回合數至少要能容納雙方的開局佈子
@@ -36,13 +30,15 @@ if config.GAME_MAX_TURNS < 2 * config.GAME_OPENING_MOVES_PER_PLAYER:
     raise ValueError("GAME_MAX_TURNS 太小，無法容納雙方的開局佈子")
 
 
+# --- 建立要用的物件（各做一個就好，整個程式共用）---
 app = Flask(__name__, template_folder="templates", static_folder="static")
 app.secret_key = "geoflip-dev-secret"   # flash 訊息需要一把密鑰，作業用固定值即可
 
-
-def _load():
-    """讀目前存檔（包成一個小函式，因為每個路由都會用到）。"""
-    return load_state(config.STATE_FILE, config.GAME_MAX_TURNS)
+store = StateStore(config.STATE_FILE, max_turns=config.GAME_MAX_TURNS)
+osrm = OsrmClient()
+nominatim = NominatimClient()
+overpass = OverpassClient(min_spacing_m=config.OVERPASS_MIN_SPACING_M)
+engine = RulesEngine()
 
 
 def _render_setup(setup_query="", setup_candidates=None, info_message=None):
@@ -65,52 +61,49 @@ def health():
 
 @app.route("/")
 def index():
-    state = _load()
+    state = store.load()
 
     # 還沒設定棋盤 → 直接帶玩家去設定頁
-    if not state["pois"]:
+    if not state.pois:
         preserved_q = (request.args.get("q") or "").strip()
         return _render_setup(setup_query=preserved_q)
 
     opening_moves = config.GAME_OPENING_MOVES_PER_PLAYER
-    cur = current_player_id(state)
-    opening = in_opening_phase(state, cur, opening_moves)
-    opening_remaining = max(0, opening_moves - player_move_count(state, cur))
+    cur = state.current_player_id()
+    opening = state.in_opening_phase(cur, opening_moves)
+    opening_remaining = max(0, opening_moves - state.player_move_count(cur))
 
-    owned_counts = {1: len(owned_pois(state, 1)), 2: len(owned_pois(state, 2))}
+    owned_counts = {1: len(state.owned_pois(1)), 2: len(state.owned_pois(2))}
 
     total_flips = 0
-    for m in state["moves"]:
+    for m in state.moves:
         total_flips += len(m["flipped_poi_ids"])
-    total_routes = len(state["routes"])
+    total_routes = len(state.routes)
 
     # 每次回合或路線變動就換一次網址，逼瀏覽器重新載入地圖 iframe
-    map_iframe_src = "/map?v=" + str(state["turn_index"]) + "_" + str(len(state["moves"]))
+    map_iframe_src = "/map?v=" + str(state.turn_index) + "_" + str(len(state.moves))
 
     # 側邊欄的路線紀錄（最新的排最上面）
     routes_info = []
-    for r in reversed(state["routes"]):
+    for r in reversed(state.routes):
         mins, secs = mmss(r["duration_s"])
         routes_info.append({
-            "turn": r["turn_index"] + 1,
-            "player": r["player_id"],
-            "distance_m": int(r["distance_m"]),
-            "mins": mins,
-            "secs": secs,
+            "turn": r["turn_index"] + 1, "player": r["player_id"],
+            "distance_m": int(r["distance_m"]), "mins": mins, "secs": secs,
         })
 
     return render_template(
         "index.html",
         state=state,
-        game_id=state["game_id"],
+        game_id=state.game_id,
         current_player_id=cur,
         in_opening_phase=opening,
         opening_remaining=opening_remaining,
         opening_moves_per_player=opening_moves,
-        scores=scores(state),
-        winner=winner(state),
-        status=state["status"],
-        is_finished=is_finished(state),
+        scores=state.scores(),
+        winner=state.winner(),
+        status=state.status,
+        is_finished=state.is_finished(),
         owned_counts=owned_counts,
         total_flips=total_flips,
         total_routes=total_routes,
@@ -130,17 +123,17 @@ def move():
         flash("缺少 target_poi_id", "error")
         return redirect(url_for("index"))
 
-    state = _load()
-    result = apply_move(state, target_poi_id, source_poi_id)
+    state = store.load()
+    result = engine.apply_move(state, target_poi_id, osrm, source_poi_id=source_poi_id)
 
     if result["ok"]:
         # 只有合法的一手才存檔；無效的一手完全不碰存檔
-        save_state(config.STATE_FILE, result["state"])
+        store.save(result["state"])
 
         flipped_n = len(result["flipped_poi_ids"])
         dist_info = ""
-        if result["route_ids"] and result["state"]["routes"]:
-            r0 = result["state"]["routes"][-1]
+        if result["route_ids"] and result["state"].routes:
+            r0 = result["state"].routes[-1]
             mins, secs = mmss(r0["duration_s"])
             dist_info = "（步行 " + str(int(r0["distance_m"])) + " 公尺 · " \
                         + str(mins) + " 分 " + str(secs) + " 秒）"
@@ -159,10 +152,10 @@ def move():
 
 @app.route("/pass", methods=["POST"])
 def pass_turn():
-    state = _load()
-    result = apply_pass(state)
+    state = store.load()
+    result = engine.apply_pass(state)
     if result["ok"]:
-        save_state(config.STATE_FILE, result["state"])
+        store.save(result["state"])
         flash("跳過一回合", "success")
     else:
         flash(result["message"], "error")
@@ -171,7 +164,7 @@ def pass_turn():
 
 @app.route("/new-game", methods=["POST"])
 def new_game_route():
-    reset_state(config.STATE_FILE)
+    store.reset()
     flash("新遊戲開始", "success")
     return redirect(url_for("index"))
 
@@ -184,7 +177,7 @@ def setup_search():
         return _render_setup()
 
     try:
-        candidates = search_locations(query, limit=5)
+        candidates = nominatim.search_locations(query, limit=5)
     except Exception as exc:
         flash(str(exc), "error")
         return _render_setup(setup_query=query)
@@ -193,11 +186,8 @@ def setup_search():
     if not candidates:
         info_message = "找不到符合的地點，請換關鍵字或換城市名稱"
 
-    return _render_setup(
-        setup_query=query,
-        setup_candidates=candidates,
-        info_message=info_message,
-    )
+    return _render_setup(setup_query=query, setup_candidates=candidates,
+                         info_message=info_message)
 
 
 @app.route("/setup/start", methods=["POST"])
@@ -228,32 +218,22 @@ def setup_start():
 
     # 用 Overpass 抓附近的 POI
     try:
-        pois = fetch_board_pois(
-            lat, lon, radius_m,
-            config.OVERPASS_MIN_SPACING_M,
-            limit=config.OVERPASS_MAX_POIS,
-        )
+        pois = overpass.fetch_board_pois(lat, lon, radius_m, limit=config.OVERPASS_MAX_POIS)
     except Exception:
-        flash(
-            "地圖資料暫時無法載入，OpenStreetMap 伺服器忙碌中。"
-            "請稍後重試，或改搜尋其他地點。",
-            "error",
-        )
+        flash("地圖資料暫時無法載入，OpenStreetMap 伺服器忙碌中。"
+              "請稍後重試，或改搜尋其他地點。", "error")
         return _back_to_setup()
 
     if len(pois) < config.OVERPASS_MIN_POIS:
-        flash(
-            "附近可用 POI 太少（" + str(len(pois)) + " 個，至少需要 "
-            + str(config.OVERPASS_MIN_POIS) + " 個），請換地點或調整範圍",
-            "error",
-        )
+        flash("附近可用 POI 太少（" + str(len(pois)) + " 個，至少需要 "
+              + str(config.OVERPASS_MIN_POIS) + " 個），請換地點或調整範圍", "error")
         return _back_to_setup()
 
     # 開一場新局，把抓到的 POI 灌進棋盤
-    reset_state(config.STATE_FILE)
-    state = _load()
-    merge_discovered_pois(state, pois)
-    save_state(config.STATE_FILE, state)
+    store.reset()
+    state = store.load()
+    state.merge_discovered_pois(pois)
+    store.save(state)
 
     if display_name:
         flash("已建立棋盤：" + display_name + "（" + str(len(pois)) + " 個 POI）", "success")
@@ -265,13 +245,14 @@ def setup_start():
 @app.route("/map")
 def map_view():
     # 單獨回傳 Folium 的完整 HTML，首頁用 <iframe> 嵌入
-    state = _load()
+    state = store.load()
     return render_map_html(state)
 
 
 @app.route("/api/state")
 def api_state():
-    return jsonify(_load())
+    state = store.load()
+    return jsonify(state.to_dict())
 
 
 if __name__ == "__main__":
