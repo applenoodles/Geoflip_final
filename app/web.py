@@ -13,12 +13,14 @@
 # 不存任何記憶體狀態，重新整理也不會出錯。
 # =====================================================================
 
+import os
+
 from flask import Flask, flash, jsonify, redirect, render_template, request, url_for
 
 from app import config
 from app.game.rules import RulesEngine
 from app.map.render import render_map_html
-from app.models import mmss
+from app.models import GameState, mmss
 from app.services.nominatim import NominatimClient
 from app.services.osrm import OsrmClient
 from app.services.overpass import OverpassClient
@@ -248,6 +250,30 @@ def map_view():
     # 單獨回傳 Folium 的完整 HTML，首頁用 <iframe> 嵌入
     state = store.load()
     return render_map_html(state)
+
+
+@app.route("/demo")
+def demo():
+    """從 demo_state.json 載入地圖 POI，但重置成全新局（turn=0，全中立）。
+    demo_state.json 本身永遠不會被改動，只是唯讀的地圖模板。"""
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    demo_path = os.path.join(base_dir, "data", "demo_state.json")
+    demo_store = StateStore(demo_path, max_turns=config.GAME_MAX_TURNS)
+    template = demo_store.load()
+    if not template.pois:
+        flash("找不到 demo_state.json，請先跑 make_demo_state.py", "error")
+        return redirect(url_for("index"))
+
+    # 新局：POI 全部變中立、turn=0、moves/routes 清空
+    fresh = GameState.new_game(config.GAME_MAX_TURNS)
+    for poi in template.pois:
+        poi.owner = None
+        poi.placed_turn = None
+        poi.discovered_turn = 0
+    fresh.pois = template.pois
+    store.save(fresh)
+    flash("Demo 地圖已載入（" + str(len(fresh.pois)) + " 個 POI），從第 1 回合開始", "success")
+    return redirect(url_for("index"))
 
 
 @app.route("/api/state")

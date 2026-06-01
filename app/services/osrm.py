@@ -37,7 +37,7 @@ class OsrmClient:
 
         # try：嘗試連線並讀資料；except：出任何錯就丟一個清楚的訊息
         try:
-            resp = requests.get(url, params=params, timeout=self.timeout)
+            resp = requests.get(url, params=params, timeout=self.timeout, verify=False)
             resp.raise_for_status()     # HTTP 狀態若是錯誤(如 404)就在這裡出錯
             data = resp.json()          # 回應的 JSON → Python 字典
         except Exception as exc:

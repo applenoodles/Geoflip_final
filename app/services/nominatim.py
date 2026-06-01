@@ -61,7 +61,7 @@ class NominatimClient:
 
         try:
             resp = requests.get(self.base_url + "/search", params=params,
-                                headers=headers, timeout=self.timeout)
+                                headers=headers, timeout=self.timeout, verify=False)
             resp.raise_for_status()
             results = resp.json()      # 一串搜尋結果（每個是字典）
         except Exception as exc:

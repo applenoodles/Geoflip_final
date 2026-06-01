@@ -1,0 +1,574 @@
+{
+  "game_id": "game_574e3e3e727541dca85c2bef22e94a1e",
+  "turn_index": 4,
+  "max_turns": 20,
+  "players": {
+    "1": {
+      "id": 1,
+      "name": "Player 1"
+    },
+    "2": {
+      "id": 2,
+      "name": "Player 2"
+    }
+  },
+  "pois": [
+    {
+      "id": "node:4330186611",
+      "name": "符東陽王明仁紀念碑",
+      "lat": 24.7911158,
+      "lon": 120.9898609,
+      "osm_type": "node",
+      "osm_id": 4330186611,
+      "category": "historic",
+      "poi_type": "memorial",
+      "score": 3,
+      "owner": 1,
+      "discovered_turn": 0,
+      "placed_turn": 0,
+      "raw": {
+        "name": "符東陽王明仁紀念碑",
+        "wikidata": "Q139560863",
+        "wikipedia": "zh:符東陽暨王明仁義行紀念碑",
+        "historic": "memorial"
+      }
+    },
+    {
+      "id": "node:5841784037",
+      "name": "NE68 庭園",
+      "lat": 24.791255,
+      "lon": 120.9903016,
+      "osm_type": "node",
+      "osm_id": 5841784037,
+      "category": "historic",
+      "poi_type": "monument",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "NE68 庭園",
+        "historic": "monument"
+      }
+    },
+    {
+      "id": "node:9861782538",
+      "name": "梅園",
+      "lat": 24.7931452,
+      "lon": 120.9912088,
+      "osm_type": "node",
+      "osm_id": 9861782538,
+      "category": "historic",
+      "poi_type": "memorial",
+      "score": 3,
+      "owner": 1,
+      "discovered_turn": 0,
+      "placed_turn": 2,
+      "raw": {
+        "name": "梅園",
+        "wikidata": "Q82701989",
+        "historic": "memorial"
+      }
+    },
+    {
+      "id": "way:134752203",
+      "name": "體育館",
+      "lat": 24.7886798,
+      "lon": 120.9958242,
+      "osm_type": "way",
+      "osm_id": 134752203,
+      "category": "leisure",
+      "poi_type": "stadium",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "體育館",
+        "name:zh": "體育館",
+        "name:en": "Gymnasium",
+        "leisure": "stadium"
+      }
+    },
+    {
+      "id": "way:180522511",
+      "name": "游泳池",
+      "lat": 24.7949669,
+      "lon": 120.9915474,
+      "osm_type": "way",
+      "osm_id": 180522511,
+      "category": "leisure",
+      "poi_type": "stadium",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "游泳池",
+        "name:zh": "游泳池",
+        "name:en": "Swimming Pool",
+        "leisure": "stadium"
+      }
+    },
+    {
+      "id": "way:180522512",
+      "name": "桌球館",
+      "lat": 24.7942867,
+      "lon": 120.99158,
+      "osm_type": "way",
+      "osm_id": 180522512,
+      "category": "leisure",
+      "poi_type": "stadium",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "桌球館",
+        "name:zh": "桌球館",
+        "name:en": "Table Tennis Court",
+        "leisure": "stadium"
+      }
+    },
+    {
+      "id": "way:180522515",
+      "name": "校友體育館",
+      "lat": 24.7955724,
+      "lon": 120.9897357,
+      "osm_type": "way",
+      "osm_id": 180522515,
+      "category": "leisure",
+      "poi_type": "stadium",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "校友體育館",
+        "name:zh": "校友體育館",
+        "name:en": "Alumni Stadium",
+        "leisure": "stadium"
+      }
+    },
+    {
+      "id": "way:220025982",
+      "name": "十八尖山公園",
+      "lat": 24.792082,
+      "lon": 120.9828691,
+      "osm_type": "way",
+      "osm_id": 220025982,
+      "category": "leisure",
+      "poi_type": "park",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "十八尖山公園",
+        "name:zh": "十八尖山公園",
+        "name:en": "Eighteen Peak Mountain Park",
+        "leisure": "park"
+      }
+    },
+    {
+      "id": "way:257646391",
+      "name": "游泳館",
+      "lat": 24.7897281,
+      "lon": 120.9958659,
+      "osm_type": "way",
+      "osm_id": 257646391,
+      "category": "leisure",
+      "poi_type": "stadium",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "游泳館",
+        "name:zh": "游泳館",
+        "name:en": "Swimming Plaza",
+        "leisure": "stadium"
+      }
+    },
+    {
+      "id": "way:448430158",
+      "name": "蝴蝶園",
+      "lat": 24.7899985,
+      "lon": 120.9884088,
+      "osm_type": "way",
+      "osm_id": 448430158,
+      "category": "tourism",
+      "poi_type": "attraction",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "蝴蝶園",
+        "name:zh": "蝴蝶園",
+        "name:en": "National Tsing Hua University Butterfly Garden",
+        "tourism": "attraction"
+      }
+    },
+    {
+      "id": "way:459090489",
+      "name": "梅貽琦之墓",
+      "lat": 24.7923807,
+      "lon": 120.9900269,
+      "osm_type": "way",
+      "osm_id": 459090489,
+      "category": "historic",
+      "poi_type": "tomb",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "梅貽琦之墓",
+        "historic": "tomb"
+      }
+    },
+    {
+      "id": "way:545137330",
+      "name": "公園",
+      "lat": 24.7885747,
+      "lon": 120.9966508,
+      "osm_type": "way",
+      "osm_id": 545137330,
+      "category": "leisure",
+      "poi_type": "park",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "leisure": "park"
+      }
+    },
+    {
+      "id": "way:558811467",
+      "name": "國立陽明交大新竹光復校區西區公園",
+      "lat": 24.7865919,
+      "lon": 120.9937872,
+      "osm_type": "way",
+      "osm_id": 558811467,
+      "category": "leisure",
+      "poi_type": "park",
+      "score": 3,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "國立陽明交大新竹光復校區西區公園",
+        "leisure": "park"
+      }
+    },
+    {
+      "id": "node:10094978586",
+      "name": "炸雞",
+      "lat": 24.792355,
+      "lon": 120.9947986,
+      "osm_type": "node",
+      "osm_id": 10094978586,
+      "category": "amenity",
+      "poi_type": "restaurant",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "炸雞",
+        "amenity": "restaurant"
+      }
+    },
+    {
+      "id": "node:11064123225",
+      "name": "清齋A棟",
+      "lat": 24.7914032,
+      "lon": 120.9929141,
+      "osm_type": "node",
+      "osm_id": 11064123225,
+      "category": "tourism",
+      "poi_type": "hostel",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "清齋A棟",
+        "tourism": "hostel"
+      }
+    },
+    {
+      "id": "node:11254883352",
+      "name": "餐廳",
+      "lat": 24.7899185,
+      "lon": 120.9966918,
+      "osm_type": "node",
+      "osm_id": 11254883352,
+      "category": "amenity",
+      "poi_type": "restaurant",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "amenity": "restaurant"
+      }
+    },
+    {
+      "id": "node:1307159625",
+      "name": "運動中心",
+      "lat": 24.7960083,
+      "lon": 120.9933214,
+      "osm_type": "node",
+      "osm_id": 1307159625,
+      "category": "leisure",
+      "poi_type": "sports_centre",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "leisure": "sports_centre"
+      }
+    },
+    {
+      "id": "node:1705782100",
+      "name": "清大水木百貨",
+      "lat": 24.7924158,
+      "lon": 120.9939012,
+      "osm_type": "node",
+      "osm_id": 1705782100,
+      "category": "shop",
+      "poi_type": "convenience",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "清大水木百貨",
+        "shop": "convenience"
+      }
+    },
+    {
+      "id": "node:1705782136",
+      "name": "朕豪自助餐",
+      "lat": 24.7920927,
+      "lon": 120.9942475,
+      "osm_type": "node",
+      "osm_id": 1705782136,
+      "category": "amenity",
+      "poi_type": "restaurant",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "朕豪自助餐",
+        "amenity": "restaurant"
+      }
+    },
+    {
+      "id": "node:1705997174",
+      "name": "麥當勞",
+      "lat": 24.7929407,
+      "lon": 120.9931391,
+      "osm_type": "node",
+      "osm_id": 1705997174,
+      "category": "amenity",
+      "poi_type": "fast_food",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "麥當勞",
+        "name:zh": "麥當勞",
+        "name:en": "McDonald's",
+        "amenity": "fast_food"
+      }
+    },
+    {
+      "id": "node:4297324140",
+      "name": "水漾餐廳",
+      "lat": 24.793943,
+      "lon": 120.9930383,
+      "osm_type": "node",
+      "osm_id": 4297324140,
+      "category": "amenity",
+      "poi_type": "cafe",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "水漾餐廳",
+        "amenity": "cafe"
+      }
+    },
+    {
+      "id": "node:9140673217",
+      "name": "路易莎咖啡",
+      "lat": 24.7955204,
+      "lon": 120.9949786,
+      "osm_type": "node",
+      "osm_id": 9140673217,
+      "category": "amenity",
+      "poi_type": "cafe",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "路易莎咖啡",
+        "name:zh": "路易莎咖啡",
+        "name:en": "Louisa Coffee",
+        "phone": "+886 3 572 1613",
+        "amenity": "cafe"
+      }
+    },
+    {
+      "id": "node:9862100448",
+      "name": "攀岩場",
+      "lat": 24.7934973,
+      "lon": 120.9906029,
+      "osm_type": "node",
+      "osm_id": 9862100448,
+      "category": "leisure",
+      "poi_type": "sports_centre",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "攀岩場",
+        "leisure": "sports_centre"
+      }
+    },
+    {
+      "id": "way:134752167",
+      "name": "綜合球館",
+      "lat": 24.789819,
+      "lon": 120.9950914,
+      "osm_type": "way",
+      "osm_id": 134752167,
+      "category": "leisure",
+      "poi_type": "sports_centre",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "綜合球館",
+        "name:zh": "綜合球館",
+        "name:en": "Composite Sports Building",
+        "leisure": "sports_centre"
+      }
+    },
+    {
+      "id": "way:163971184",
+      "name": "光復中學",
+      "lat": 24.7973677,
+      "lon": 120.9939169,
+      "osm_type": "way",
+      "osm_id": 163971184,
+      "category": "amenity",
+      "poi_type": "school",
+      "score": 2,
+      "owner": 2,
+      "discovered_turn": 0,
+      "placed_turn": 3,
+      "raw": {
+        "name": "光復中學",
+        "name:zh": "光復中學",
+        "name:en": "Kuang-Fu High School",
+        "website": "https://www.kfsh.hc.edu.tw/",
+        "wikidata": "Q11084005",
+        "wikipedia": "zh:新竹市私立光復高級中學",
+        "phone": "+886 3 5753699",
+        "amenity": "school"
+      }
+    },
+    {
+      "id": "way:246271642",
+      "name": "梅園",
+      "lat": 24.7929625,
+      "lon": 120.9908179,
+      "osm_type": "way",
+      "osm_id": 246271642,
+      "category": "leisure",
+      "poi_type": "garden",
+      "score": 2,
+      "owner": null,
+      "discovered_turn": 0,
+      "placed_turn": null,
+      "raw": {
+        "name": "梅園",
+        "name:zh": "梅園",
+        "name:en": "Plum Gardens",
+        "leisure": "garden"
+      }
+    },
+    {
+      "id": "way:451862878",
+      "name": "奕園",
+      "lat": 24.7876914,
+      "lon": 120.9910074,
+      "osm_type": "way",
+      "osm_id": 451862878,
+      "category": "leisure",
+      "poi_type": "garden",
+      "score": 2,
+      "owner": 2,
+      "discovered_turn": 0,
+      "placed_turn": 1,
+      "raw": {
+        "name": "奕園",
+        "leisure": "garden"
+      }
+    }
+  ],
+  "routes": [],
+  "moves": [
+    {
+      "turn_index": 0,
+      "player_id": 1,
+      "move_kind": "opening",
+      "placed_poi_id": "node:4330186611",
+      "source_poi_id": null,
+      "route_ids": [],
+      "flipped_poi_ids": []
+    },
+    {
+      "turn_index": 1,
+      "player_id": 2,
+      "move_kind": "opening",
+      "placed_poi_id": "way:451862878",
+      "source_poi_id": null,
+      "route_ids": [],
+      "flipped_poi_ids": []
+    },
+    {
+      "turn_index": 2,
+      "player_id": 1,
+      "move_kind": "opening",
+      "placed_poi_id": "node:9861782538",
+      "source_poi_id": null,
+      "route_ids": [],
+      "flipped_poi_ids": []
+    },
+    {
+      "turn_index": 3,
+      "player_id": 2,
+      "move_kind": "opening",
+      "placed_poi_id": "way:163971184",
+      "source_poi_id": null,
+      "route_ids": [],
+      "flipped_poi_ids": []
+    }
+  ],
+  "created_at": "2026-06-01T09:06:17.455611+00:00",
+  "updated_at": "2026-06-01T09:06:17.459608+00:00",
+  "status": "active"
+}

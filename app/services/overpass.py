@@ -209,7 +209,7 @@ class OverpassClient:
         try:
             resp = requests.post(url, data={"data": query},
                                  headers={"User-Agent": "geoflip-coursework/0.1"},
-                                 timeout=self.timeout)
+                                 timeout=self.timeout, verify=False)
             resp.raise_for_status()
             payload = resp.json()
         except Exception as exc:
