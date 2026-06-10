@@ -27,6 +27,7 @@ from app.services.geometry import (
     buffer_route_meters,
     route_to_meter_linestring,
 )
+from app.services.overpass import _CN_TYPE_NAMES, _CN_CATEGORY_FALLBACK
 
 
 # --- 顏色與大小設定 ---
@@ -62,7 +63,8 @@ def _popup_header(poi):
         "<div style='font-weight:600;font-size:14px;margin-bottom:4px'>"
         + escape(poi.name) + "</div>"
         + "<div style='font-size:12px;color:#555;margin-bottom:6px'>"
-        + escape(poi.category) + ":" + escape(poi.poi_type)
+        + escape(_CN_TYPE_NAMES.get((poi.category, poi.poi_type),
+                 _CN_CATEGORY_FALLBACK.get(poi.category, poi.category + ":" + poi.poi_type)))
         + " · 分數 " + str(poi.score) + " · " + _owner_label(poi.owner) + "</div>"
     )
 
