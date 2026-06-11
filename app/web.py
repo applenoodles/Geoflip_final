@@ -165,6 +165,29 @@ def pass_turn():
     return redirect(url_for("index"))
 
 
+@app.route("/add-poi", methods=["POST"])
+def add_poi():
+    """開局階段，玩家在地圖上右鍵手動新增一個中立 POI。
+    這算正式的一手：會用掉一回合（細節在 RulesEngine.apply_add_poi）。"""
+    try:
+        lat = float(request.form.get("lat", ""))
+        lon = float(request.form.get("lon", ""))
+    except (TypeError, ValueError):
+        flash("座標格式錯誤", "error")
+        return redirect(url_for("index"))
+
+    name = (request.form.get("name") or "").strip() or "自訂點"
+
+    state = store.load()
+    result = engine.apply_add_poi(state, name, lat, lon)
+    if result["ok"]:
+        store.save(result["state"])
+        flash("已新增中立點：" + name + "（用掉一手）", "success")
+    else:
+        flash(result["message"], "error")
+    return redirect(url_for("index"))
+
+
 @app.route("/new-game", methods=["POST"])
 def new_game_route():
     store.reset()

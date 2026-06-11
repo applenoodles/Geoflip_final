@@ -26,7 +26,7 @@ OSRM_PROFILE = "foot"             # foot = 走路
 # --- Overpass：抓棋盤上一堆 POI（地點）的服務 ---
 OVERPASS_BASE_URL = "https://overpass-api.de"
 OVERPASS_RADIUS_M = 500           # 以起始點為中心，抓多大範圍的 POI（公尺）
-OVERPASS_MIN_POIS = 18            # 至少要抓到幾個 POI 才能開局
+OVERPASS_MIN_POIS = 20            # 至少要抓到幾個 POI 才能開局
 OVERPASS_MAX_POIS = 36            # 最多保留幾個 POI
 OVERPASS_TIMEOUT_SECONDS = 25     # 等 Overpass 回應的秒數上限
 OVERPASS_MIN_SPACING_M = 30       # 兩個 POI 至少相隔幾公尺（避免擠成一坨）

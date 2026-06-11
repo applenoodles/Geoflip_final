@@ -64,7 +64,7 @@ _CN_TYPE_NAMES = {
 _CN_CATEGORY_FALLBACK = {
     "amenity": "設施", "tourism": "觀光景點", "leisure": "休閒場所",
     "shop": "商店", "railway": "鐵路站", "public_transport": "交通站",
-    "historic": "古蹟",
+    "historic": "古蹟", "custom": "自訂點",
 }
 
 # raw 裡只保留這些 tag（免得存檔太肥）

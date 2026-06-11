@@ -34,7 +34,7 @@ from app.config import (
     GAME_MAX_WALK_SECONDS,
     GAME_OPENING_MOVES_PER_PLAYER,
 )
-from app.models import mmss
+from app.models import Poi, mmss
 from app.services.geometry import (
     build_meter_transformers,
     buffer_route_meters,
@@ -130,6 +130,38 @@ class RulesEngine:
         new_state = deepcopy(state)    # 整份複製一份再改，不動到原本的
         new_state.moves.append({
             "turn_index": state.turn_index, "player_id": cur, "move_kind": "pass",
+            "placed_poi_id": None, "source_poi_id": None,
+            "route_ids": [], "flipped_poi_ids": [],
+        })
+        new_state.turn_index += 1
+        new_state.updated_at = _now_iso()
+        self._maybe_finish(new_state)
+        return {"ok": True, "message": "OK", "state": new_state,
+                "placed_poi_id": None, "flipped_poi_ids": [], "route_ids": []}
+
+    def apply_add_poi(self, state, name, lat, lon):
+        """玩家手動新增一個中立 POI（遊戲進行中任何回合都可以）。
+
+        這算「正式的一手」：跟落子、跳過一樣會用掉一回合（記一筆 move、
+        turn +1），所以不能無限免費刷點，每加一個點就換對手回應。
+        加出來的點是中立的，之後跟其他中立點一模一樣（可被選中、連線、翻面）。
+        """
+        if state.is_finished():
+            return _invalid(state, "遊戲已結束")
+
+        cur = state.current_player_id()
+        new_state = deepcopy(state)
+        poi = Poi(
+            id="manual_" + uuid.uuid4().hex,    # 隨機不重複的編號
+            name=name, lat=lat, lon=lon,
+            osm_type=None, osm_id=None,
+            category="custom", poi_type="custom", score=1,
+            owner=None,                         # 中立
+            discovered_turn=state.turn_index,
+        )
+        new_state.pois.append(poi)
+        new_state.moves.append({
+            "turn_index": state.turn_index, "player_id": cur, "move_kind": "add",
             "placed_poi_id": None, "source_poi_id": None,
             "route_ids": [], "flipped_poi_ids": [],
         })

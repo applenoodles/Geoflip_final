@@ -207,6 +207,12 @@ def _popup_style():
     font-weight: 600;
     border-radius: 6px !important;
   }
+  /* 圖釘模式：游標變十字，提示「點地圖就會放點」 */
+  .geoflip-addmode,
+  .geoflip-addmode .leaflet-grab,
+  .geoflip-addmode .leaflet-interactive { cursor: crosshair !important; }
+  /* 「新增中立點」控制按鈕 */
+  .geoflip-pin-ctrl a { color: #16181d; background: #fff; }
 </style>
 """
 
@@ -216,13 +222,14 @@ def _popup_style():
 # 這段是網頁互動，必須維持原樣，UI 行為才不會變。
 # ---------------------------------------------------------------------
 
-def _page_script(game_id, turn_index):
+def _page_script(game_id, turn_index, can_add):
     return """
 <script>
 (function() {
   var KEY = "geoflip_src_GAMEID_TURNINDEX";
   var TOP = (function() { try { return window.top; } catch (e) { return window; } })();
-  var MAP = null;   // 等地圖載好後存進來，之後用它來關閉 popup
+  var MAP = null;        // 等地圖載好後存進來，之後用它來關閉 popup
+  var CANADD = CANADDFLAG;   // 遊戲進行中（未結束）都開放「新增中立點」
 
   function getStore() {
     try { return TOP.localStorage; } catch (e) { return localStorage; }
@@ -295,9 +302,80 @@ def _page_script(game_id, turn_index):
     }
   };
 
+  // ---- 「圖釘模式」：先點左上角的按鈕開啟，再點地圖空白處放一個中立點 ----
+  // （右鍵在 iframe 裡常被瀏覽器原生選單吃掉，所以改用 Google 地圖那種放置流程）
+  var addMode = false;
+  var pinLink = null;            // 控制按鈕的 <a>，用來改外觀/文字
+
+  function submitAddPoi(lat, lon, name) {
+    var f = document.createElement("form");
+    f.method = "post";
+    f.action = "/add-poi";
+    f.target = "_top";           // 跳出 iframe，導向最外層頁面
+    f.style.display = "none";
+    function addField(k, v) {
+      var i = document.createElement("input");
+      i.type = "hidden"; i.name = k; i.value = v;
+      f.appendChild(i);
+    }
+    addField("lat", lat);
+    addField("lon", lon);
+    addField("name", name);
+    document.body.appendChild(f);
+    f.submit();
+  }
+
+  function setAddMode(on) {
+    addMode = on;
+    var c = MAP.getContainer();
+    if (on) {
+      c.classList.add("geoflip-addmode");       // 游標變十字（CSS 在 _popup_style）
+      if (pinLink) { pinLink.style.background = "#16a34a"; pinLink.style.color = "#fff";
+                     pinLink.textContent = "✕ 取消放置"; }
+    } else {
+      c.classList.remove("geoflip-addmode");
+      if (pinLink) { pinLink.style.background = "#fff"; pinLink.style.color = "#16181d";
+                     pinLink.textContent = "📍 新增中立點"; }
+    }
+  }
+
+  function onMapClick(e) {
+    if (!addMode) return;
+    setAddMode(false);           // 放一個就退出模式（這手會被用掉）
+    var name = window.prompt("新增中立點會用掉這一手，輸入名稱：", "自訂點");
+    if (name === null) return;   // 按取消 → 不放
+    submitAddPoi(e.latlng.lat, e.latlng.lng, name);
+  }
+
+  function addPinControl() {
+    var ctrl = L.control({ position: "topleft" });
+    ctrl.onAdd = function() {
+      var div = L.DomUtil.create("div", "leaflet-bar geoflip-pin-ctrl");
+      var a = L.DomUtil.create("a", "", div);
+      a.href = "#";
+      a.title = "先點我，再點地圖空白處放一個中立點（會用掉一手）";
+      a.textContent = "📍 新增中立點";
+      a.style.cssText = "width:auto;padding:0 10px;height:30px;line-height:30px;"
+                      + "white-space:nowrap;font-size:13px;font-weight:600;"
+                      + "font-family:-apple-system,'Segoe UI','Microsoft JhengHei',sans-serif;";
+      pinLink = a;
+      L.DomEvent.disableClickPropagation(div);   // 點按鈕不要穿透成地圖點擊
+      L.DomEvent.on(a, "click", function(ev) {
+        L.DomEvent.stop(ev);
+        setAddMode(!addMode);
+      });
+      return div;
+    };
+    ctrl.addTo(MAP);
+  }
+
   document.addEventListener("DOMContentLoaded", function() {
     MAP = findMap();
     if (MAP) MAP.on("popupopen", hydrateAll);
+    if (MAP && CANADD) {        // 遊戲進行中都提供「新增中立點」
+      addPinControl();
+      MAP.on("click", onMapClick);
+    }
     hydrateAll();
   });
 
@@ -305,7 +383,8 @@ def _page_script(game_id, turn_index):
   if (cached) notifyParent(cached);
 })();
 </script>
-""".replace("GAMEID", game_id).replace("TURNINDEX", str(turn_index))
+""".replace("GAMEID", game_id).replace("TURNINDEX", str(turn_index)) \
+    .replace("CANADDFLAG", "true" if can_add else "false")
 
 
 # ---------------------------------------------------------------------
@@ -395,7 +474,7 @@ def render_map_html(state):
         html = style + html
 
     # --- 把我們的 JavaScript 塞進 Folium 產生的 HTML 裡 ---
-    script = _page_script(state.game_id, state.turn_index)
+    script = _page_script(state.game_id, state.turn_index, not finished)
     if "</body>" in html:
         html = html.replace("</body>", script + "</body>")
     else:
